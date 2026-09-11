@@ -1043,7 +1043,7 @@ export default function HomePage() {
           align-items: center;
           background:
             linear-gradient(90deg, rgba(4, 34, 25, 0.92), rgba(4, 73, 56, 0.76)),
-            url("https://images.unsplash.com/photo-1556761175-4b46a572b786?auto=format&fit=crop&w=1800&q=90");
+           url("https://images.unsplash.com/photo-1556761175-4b46a572b786?auto=format&fit=crop&w=1800&q=90");
           background-size: cover;
           background-position: center;
           color: #ffffff;
