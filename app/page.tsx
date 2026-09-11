@@ -443,7 +443,7 @@ export default function HomePage() {
           min-height: 720px;
           background:
             linear-gradient(90deg, rgba(3, 22, 17, 0.96), rgba(5, 49, 39, 0.82), rgba(255, 255, 255, 0.08)),
-            url("/images/hero-dubai.jpg");
+            url("https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1800&q=90");
           background-size: cover;
           background-position: center;
           position: relative;
@@ -1043,7 +1043,7 @@ export default function HomePage() {
           align-items: center;
           background:
             linear-gradient(90deg, rgba(4, 34, 25, 0.92), rgba(4, 73, 56, 0.76)),
-           url("https://images.unsplash.com/photo-1556761175-4b46a572b786?auto=format&fit=crop&w=1800&q=90");
+            url("https://images.unsplash.com/photo-1556761175-4b46a572b786?auto=format&fit=crop&w=1800&q=90");
           background-size: cover;
           background-position: center;
           color: #ffffff;
