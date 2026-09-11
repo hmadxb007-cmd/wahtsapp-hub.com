@@ -443,7 +443,7 @@ export default function HomePage() {
           min-height: 720px;
           background:
             linear-gradient(90deg, rgba(3, 22, 17, 0.96), rgba(5, 49, 39, 0.82), rgba(255, 255, 255, 0.08)),
-            url("https://images.unsplash.com/photo-1556761175-4b46a572b786?auto=format&fit=crop&w=1800&q=90");
+            url("/images/hero-dubai.jpg");
           background-size: cover;
           background-position: center;
           position: relative;
