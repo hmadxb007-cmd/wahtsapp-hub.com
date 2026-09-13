@@ -1,8 +1,10 @@
 
 "use client";
+import AuthGuard from "../AuthGuard";
 
 export default function DashboardPage() {
   return (
+    <AuthGuard>
     <main className="dashboard">
       <aside>
         <a className="brand" href="/">
@@ -427,5 +429,6 @@ export default function DashboardPage() {
         }
       `}</style>
     </main>
+      </AuthGuard>
   );
 }
