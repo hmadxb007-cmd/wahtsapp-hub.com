@@ -444,10 +444,10 @@ export default function HomePage() {
   background:
     linear-gradient(
       90deg,
-      rgba(3, 16, 13, 0.82) 0%,
-      rgba(3, 16, 13, 0.68) 32%,
-      rgba(3, 16, 13, 0.30) 58%,
-      rgba(3, 16, 13, 0.08) 100%
+      rgba(3, 16, 13, 0.88) 0%,
+      rgba(3, 16, 13, 0.70) 35%,
+      rgba(3, 16, 13, 0.30) 60%,
+      rgba(3, 16, 13, 0.05) 100%
     ),
     url("/images/hero-dubai-cover.png");
   background-size: cover;
