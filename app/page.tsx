@@ -441,15 +441,15 @@ export default function HomePage() {
 
        .hero {
   min-height: 760px;
-  background:
+  background-image:
     linear-gradient(
       90deg,
       rgba(3, 16, 13, 0.88) 0%,
-      rgba(3, 16, 13, 0.70) 35%,
-      rgba(3, 16, 13, 0.30) 60%,
-      rgba(3, 16, 13, 0.05) 100%
+      rgba(3, 16, 13, 0.68) 35%,
+      rgba(3, 16, 13, 0.22) 60%,
+      rgba(3, 16, 13, 0.02) 100%
     ),
-    url("/images/hero-dubai-cover.png");
+    url("/images/hero-dubai-cover.png?v=9");
   background-size: cover;
   background-position: center right;
   background-repeat: no-repeat;
@@ -1122,13 +1122,13 @@ export default function HomePage() {
         }
 
         @media (max-width: 1100px) {
-          .heroInner,
-          .serviceGrid,
-          .features,
-          .growth,
-          .demo {
-            grid-template-columns: 1fr;
-          }
+          .heroInner {
+  position: relative;
+  z-index: 2;
+  padding: 95px 7vw 120px;
+  display: block;
+  max-width: 900px;
+}
 
           .heroMedia {
             min-height: 560px;
