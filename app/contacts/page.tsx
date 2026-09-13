@@ -13,6 +13,11 @@ type Lead = {
   message: string;
   source: string;
   status: string;
+  accountType?: string;
+  packageName?: string;
+  accountStatus?: string;
+  demoStartDate?: string;
+  demoEndDate?: string;
   createdAt: string;
 };
 
