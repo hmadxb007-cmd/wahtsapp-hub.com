@@ -31,7 +31,7 @@ Service: ${form.service}
 Message: ${form.message}
     `.trim();
 
-    const whatsappNumber = "971509998888";
+    const whatsappNumber = "971504265343";
     const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`;
 
     window.open(url, "_blank");
