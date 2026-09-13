@@ -8,20 +8,24 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   function login() {
-    if (!email || !password) {
-      setError("Please enter email and password.");
-      return;
-    }
+  setError("");
 
-    document.cookie =
-      "wh_hub_session=active; path=/; max-age=604800; SameSite=Lax";
+  const correctEmail = "admin@whatsapp-hub.com";
+  const correctPassword = "123456";
 
-    const params = new URLSearchParams(window.location.search);
-    const next = params.get("next") || "/dashboard";
-
-    window.location.href = next;
+  if (email !== correctEmail || password !== correctPassword) {
+    setError("Invalid email or password.");
+    return;
   }
 
+  document.cookie =
+    "wh_hub_session=active; path=/; max-age=604800; SameSite=Lax";
+
+  const params = new URLSearchParams(window.location.search);
+  const next = params.get("next") || "/dashboard";
+
+  window.location.href = next;
+}
   return (
     <main className="page">
       <section className="loginBox">
