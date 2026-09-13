@@ -7,14 +7,21 @@ import AuthGuard from "../AuthGuard";
 type Campaign = {
   id: string;
   name: string;
+  campaignMode?: string;
   template: string;
+  iceBreakerTemplate?: string;
+  mainTemplate?: string;
   date: string;
   time: string;
   recipients: number;
   status: string;
+  safetyStatus?: string;
   sent: number;
   delivered: number;
   replies: number;
+  interestedCount?: number;
+  notInterestedCount?: number;
+  noReplyCount?: number;
   createdAt: string;
 };
 
@@ -28,11 +35,14 @@ export default function CampaignsPage() {
 
   const [form, setForm] = useState({
     name: "",
+    campaignMode: "Ice-Breaker Campaign",
     template: "property_offer_template",
+    iceBreakerTemplate: "soft_permission_intro",
+    mainTemplate: "property_offer_template",
     date: "",
     time: "",
     recipients: "0",
-    status: "Draft",
+    status: "Ice-Breaker Ready",
   });
 
   async function loadCampaigns() {
@@ -53,10 +63,19 @@ export default function CampaignsPage() {
   }, []);
 
   function updateField(field: string, value: string) {
-    setForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setForm((prev) => {
+      const updated = {
+        ...prev,
+        [field]: value,
+      };
+
+      if (field === "campaignMode") {
+        updated.status =
+          value === "Ice-Breaker Campaign" ? "Ice-Breaker Ready" : "Draft";
+      }
+
+      return updated;
+    });
   }
 
   function cleanPhone(value: any) {
@@ -87,11 +106,7 @@ export default function CampaignsPage() {
       row.forEach((cell) => {
         const phone = cleanPhone(cell);
 
-        if (
-          phone &&
-          phone.length >= 8 &&
-          /^[+0-9]+$/.test(phone)
-        ) {
+        if (phone && phone.length >= 8 && /^[+0-9]+$/.test(phone)) {
           numbers.push(phone);
         }
       });
@@ -111,6 +126,11 @@ export default function CampaignsPage() {
       return;
     }
 
+    if (Number(form.recipients || 0) <= 0) {
+      alert("Please import numbers or enter recipients count.");
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -121,7 +141,13 @@ export default function CampaignsPage() {
         },
         body: JSON.stringify({
           name: form.name,
-          template: form.template,
+          campaignMode: form.campaignMode,
+          template:
+            form.campaignMode === "Ice-Breaker Campaign"
+              ? form.iceBreakerTemplate
+              : form.template,
+          iceBreakerTemplate: form.iceBreakerTemplate,
+          mainTemplate: form.mainTemplate,
           date: form.date,
           time: form.time,
           recipients: Number(form.recipients || 0),
@@ -134,11 +160,14 @@ export default function CampaignsPage() {
       if (data.ok) {
         setForm({
           name: "",
+          campaignMode: "Ice-Breaker Campaign",
           template: "property_offer_template",
+          iceBreakerTemplate: "soft_permission_intro",
+          mainTemplate: "property_offer_template",
           date: "",
           time: "",
           recipients: "0",
-          status: "Draft",
+          status: "Ice-Breaker Ready",
         });
 
         setImportedNumbers([]);
@@ -151,6 +180,26 @@ export default function CampaignsPage() {
     }
 
     setSaving(false);
+  }
+
+  async function campaignAction(id: string, action: string) {
+    try {
+      const res = await fetch("/api/campaigns", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id, action }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        await loadCampaigns();
+      }
+    } catch (error) {
+      alert("Could not update campaign.");
+    }
   }
 
   async function deleteCampaign(id: string) {
@@ -209,8 +258,8 @@ export default function CampaignsPage() {
         <section className="content">
           <header>
             <div>
-              <span>Marketing workspace</span>
-              <h1>WhatsApp Campaigns</h1>
+              <span>Safe WhatsApp marketing</span>
+              <h1>Campaigns</h1>
             </div>
 
             <button onClick={saveCampaign}>
@@ -218,27 +267,77 @@ export default function CampaignsPage() {
             </button>
           </header>
 
+          <div className="safetyBanner">
+            <div>
+              <strong>Ice-Breaker Mode</strong>
+              <p>
+                Start with a soft permission message, collect interested replies,
+                then launch the main campaign only to warm contacts.
+              </p>
+            </div>
+            <b>Safer Flow</b>
+          </div>
+
           <div className="grid">
             <div className="card builder">
-              <h2>Create New Campaign</h2>
+              <h2>Create Campaign</h2>
+
+              <label>Campaign Mode</label>
+              <select
+                value={form.campaignMode}
+                onChange={(e) => updateField("campaignMode", e.target.value)}
+              >
+                <option>Ice-Breaker Campaign</option>
+                <option>Direct Campaign</option>
+              </select>
 
               <label>Campaign Name</label>
               <input
                 value={form.name}
                 onChange={(e) => updateField("name", e.target.value)}
-                placeholder="Example: Dubai Property Launch Campaign"
+                placeholder="Example: Dubai Investor Ice-Breaker"
               />
 
-              <label>Choose Approved Template</label>
-              <select
-                value={form.template}
-                onChange={(e) => updateField("template", e.target.value)}
-              >
-                <option>property_offer_template</option>
-                <option>appointment_reminder_template</option>
-                <option>new_launch_invitation</option>
-                <option>crm_demo_invite</option>
-              </select>
+              {form.campaignMode === "Ice-Breaker Campaign" ? (
+                <>
+                  <label>Ice-Breaker Template</label>
+                  <select
+                    value={form.iceBreakerTemplate}
+                    onChange={(e) =>
+                      updateField("iceBreakerTemplate", e.target.value)
+                    }
+                  >
+                    <option>soft_permission_intro</option>
+                    <option>business_intro_yes_reply</option>
+                    <option>crm_solution_interest_check</option>
+                    <option>real_estate_interest_check</option>
+                  </select>
+
+                  <label>Main Campaign Template</label>
+                  <select
+                    value={form.mainTemplate}
+                    onChange={(e) => updateField("mainTemplate", e.target.value)}
+                  >
+                    <option>property_offer_template</option>
+                    <option>crm_demo_invite</option>
+                    <option>new_launch_invitation</option>
+                    <option>appointment_reminder_template</option>
+                  </select>
+                </>
+              ) : (
+                <>
+                  <label>Approved Template</label>
+                  <select
+                    value={form.template}
+                    onChange={(e) => updateField("template", e.target.value)}
+                  >
+                    <option>property_offer_template</option>
+                    <option>appointment_reminder_template</option>
+                    <option>new_launch_invitation</option>
+                    <option>crm_demo_invite</option>
+                  </select>
+                </>
+              )}
 
               <div className="row">
                 <div>
@@ -269,13 +368,7 @@ export default function CampaignsPage() {
               />
 
               <label>Status</label>
-              <select
-                value={form.status}
-                onChange={(e) => updateField("status", e.target.value)}
-              >
-                <option>Draft</option>
-                <option>Scheduled</option>
-              </select>
+              <input value={form.status} readOnly />
 
               <div className="upload">
                 <strong>Import Excel Numbers</strong>
@@ -316,7 +409,37 @@ export default function CampaignsPage() {
             </div>
 
             <div className="card preview">
-              <h2>Message Preview</h2>
+              <h2>Campaign Flow</h2>
+
+              {form.campaignMode === "Ice-Breaker Campaign" ? (
+                <div className="flow">
+                  <div className="flowStep active">
+                    <b>1</b>
+                    <strong>Ice-Breaker</strong>
+                    <p>Send soft permission message first.</p>
+                  </div>
+
+                  <div className="flowStep">
+                    <b>2</b>
+                    <strong>Wait Replies</strong>
+                    <p>Separate interested and not interested contacts.</p>
+                  </div>
+
+                  <div className="flowStep">
+                    <b>3</b>
+                    <strong>Main Campaign</strong>
+                    <p>Send offer only to interested contacts.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flow">
+                  <div className="flowStep active">
+                    <b>1</b>
+                    <strong>Direct Template</strong>
+                    <p>Send one approved template to imported recipients.</p>
+                  </div>
+                </div>
+              )}
 
               <div className="phone">
                 <div className="phoneTop">
@@ -325,29 +448,11 @@ export default function CampaignsPage() {
                 </div>
 
                 <div className="message">
-                  🏙️ Discover exclusive Dubai property offers. Reply YES for
-                  details.
+                  Hi, can we send you details about our WhatsApp CRM and
+                  automation solution? Reply YES for details.
                 </div>
 
                 <div className="message reply">YES</div>
-              </div>
-
-              <div className="statusBox">
-                <div>
-                  <span>Total Campaigns</span>
-                  <b>{campaigns.length}</b>
-                </div>
-
-                <div>
-                  <span>Total Recipients</span>
-                  <b>
-                    {campaigns.reduce(
-                      (total, campaign) =>
-                        total + Number(campaign.recipients || 0),
-                      0
-                    )}
-                  </b>
-                </div>
               </div>
 
               {importedNumbers.length > 0 && (
@@ -373,14 +478,12 @@ export default function CampaignsPage() {
                   <thead>
                     <tr>
                       <th>Name</th>
-                      <th>Template</th>
-                      <th>Date</th>
-                      <th>Time</th>
+                      <th>Mode</th>
                       <th>Recipients</th>
-                      <th>Sent</th>
-                      <th>Delivered</th>
-                      <th>Replies</th>
+                      <th>Interested</th>
+                      <th>No Reply</th>
                       <th>Status</th>
+                      <th>Safety</th>
                       <th>Action</th>
                     </tr>
                   </thead>
@@ -390,14 +493,12 @@ export default function CampaignsPage() {
                       <tr key={campaign.id}>
                         <td>
                           <strong>{campaign.name}</strong>
+                          <small>{campaign.date || "-"} {campaign.time || ""}</small>
                         </td>
-                        <td>{campaign.template}</td>
-                        <td>{campaign.date || "-"}</td>
-                        <td>{campaign.time || "-"}</td>
+                        <td>{campaign.campaignMode || "Direct Campaign"}</td>
                         <td>{campaign.recipients}</td>
-                        <td>{campaign.sent}</td>
-                        <td>{campaign.delivered}</td>
-                        <td>{campaign.replies}</td>
+                        <td>{campaign.interestedCount || 0}</td>
+                        <td>{campaign.noReplyCount ?? campaign.recipients}</td>
                         <td>
                           <em
                             className={
@@ -407,13 +508,51 @@ export default function CampaignsPage() {
                             {campaign.status}
                           </em>
                         </td>
+                        <td>{campaign.safetyStatus || "-"}</td>
                         <td>
-                          <button
-                            className="deleteBtn"
-                            onClick={() => deleteCampaign(campaign.id)}
-                          >
-                            Delete
-                          </button>
+                          <div className="tableActions">
+                            {(campaign.campaignMode || "Direct Campaign") ===
+                              "Ice-Breaker Campaign" &&
+                              campaign.status === "Ice-Breaker Ready" && (
+                                <button
+                                  onClick={() =>
+                                    campaignAction(campaign.id, "start_icebreaker")
+                                  }
+                                >
+                                  Start Ice-Breaker
+                                </button>
+                              )}
+
+                            {campaign.status === "Waiting Replies" && (
+                              <button
+                                onClick={() =>
+                                  campaignAction(
+                                    campaign.id,
+                                    "prepare_main_campaign"
+                                  )
+                                }
+                              >
+                                Prepare Main
+                              </button>
+                            )}
+
+                            {campaign.status === "Main Campaign Ready" && (
+                              <button
+                                onClick={() =>
+                                  campaignAction(campaign.id, "complete_campaign")
+                                }
+                              >
+                                Complete
+                              </button>
+                            )}
+
+                            <button
+                              className="deleteBtn"
+                              onClick={() => deleteCampaign(campaign.id)}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -425,9 +564,7 @@ export default function CampaignsPage() {
         </section>
 
         <style jsx>{`
-          * {
-            box-sizing: border-box;
-          }
+          * { box-sizing: border-box; }
 
           .app {
             min-height: 100vh;
@@ -490,17 +627,12 @@ export default function CampaignsPage() {
             width: 100%;
             margin-top: 25px;
             padding: 13px 14px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255,255,255,0.15);
             border-radius: 13px;
-            background: rgba(255, 255, 255, 0.06);
+            background: rgba(255,255,255,0.06);
             color: #fff;
             font-weight: 900;
             cursor: pointer;
-          }
-
-          .logout:hover {
-            background: #25d366;
-            color: #061812;
           }
 
           .content {
@@ -512,7 +644,7 @@ export default function CampaignsPage() {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 24px;
+            margin-bottom: 18px;
           }
 
           header span {
@@ -531,7 +663,8 @@ export default function CampaignsPage() {
 
           header button,
           .primary,
-          .upload button {
+          .upload button,
+          .tableActions button {
             border: 0;
             border-radius: 14px;
             background: #25d366;
@@ -544,9 +677,35 @@ export default function CampaignsPage() {
             padding: 14px 18px;
           }
 
+          .safetyBanner {
+            background: #e8f7ef;
+            border: 1px solid #bde9cf;
+            border-radius: 22px;
+            padding: 18px 22px;
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 18px;
+          }
+
+          .safetyBanner p {
+            margin: 6px 0 0;
+            color: #58746c;
+            line-height: 1.5;
+          }
+
+          .safetyBanner b {
+            background: #075e54;
+            color: #fff;
+            border-radius: 999px;
+            padding: 10px 14px;
+            white-space: nowrap;
+          }
+
           .grid {
             display: grid;
-            grid-template-columns: 1.2fr 0.8fr;
+            grid-template-columns: 1.1fr 0.9fr;
             gap: 18px;
           }
 
@@ -560,6 +719,7 @@ export default function CampaignsPage() {
 
           .wide {
             grid-column: span 2;
+            overflow-x: auto;
           }
 
           h2 {
@@ -586,11 +746,6 @@ export default function CampaignsPage() {
             font-weight: 800;
             outline: none;
             background: #fff;
-          }
-
-          input:focus,
-          select:focus {
-            border-color: #25d366;
           }
 
           .row {
@@ -641,6 +796,40 @@ export default function CampaignsPage() {
             font-size: 15px;
           }
 
+          .flow {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 20px;
+          }
+
+          .flowStep {
+            border: 1px solid #e4eee8;
+            background: #f8fcfa;
+            border-radius: 18px;
+            padding: 16px;
+          }
+
+          .flowStep.active {
+            background: #e8f7ef;
+            border-color: #bde9cf;
+          }
+
+          .flowStep b {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #25d366;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+          }
+
+          .flowStep p {
+            margin: 8px 0 0;
+            color: #58746c;
+          }
+
           .phone {
             background: #061812;
             border-radius: 32px;
@@ -681,35 +870,6 @@ export default function CampaignsPage() {
             font-weight: 900;
           }
 
-          .statusBox {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 20px;
-          }
-
-          .statusBox div {
-            background: #f6fbf8;
-            border-radius: 16px;
-            padding: 16px;
-            text-align: center;
-          }
-
-          .statusBox span,
-          .statusBox b {
-            display: block;
-          }
-
-          .statusBox span {
-            color: #58746c;
-            font-size: 12px;
-            margin-bottom: 6px;
-          }
-
-          .statusBox b {
-            font-size: 24px;
-          }
-
           .numberPreview {
             margin-top: 18px;
             background: #f8fcfa;
@@ -731,12 +891,6 @@ export default function CampaignsPage() {
             font-weight: 850;
           }
 
-          .numberPreview small {
-            color: #58746c;
-            margin-top: 10px;
-            font-weight: 800;
-          }
-
           .empty {
             background: #f8fcfa;
             border: 1px dashed #dcebe5;
@@ -749,6 +903,7 @@ export default function CampaignsPage() {
           table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 1000px;
           }
 
           th,
@@ -756,13 +911,19 @@ export default function CampaignsPage() {
             padding: 16px;
             border-bottom: 1px solid #e4eee8;
             text-align: left;
-            vertical-align: middle;
+            vertical-align: top;
           }
 
           th {
             color: #58746c;
             font-size: 12px;
             text-transform: uppercase;
+          }
+
+          td small {
+            display: block;
+            color: #58746c;
+            margin-top: 5px;
           }
 
           em {
@@ -781,14 +942,21 @@ export default function CampaignsPage() {
             color: #9a6500;
           }
 
+          .tableActions {
+            display: grid;
+            gap: 8px;
+            min-width: 150px;
+          }
+
+          .tableActions button {
+            padding: 9px 12px;
+            font-size: 12px;
+          }
+
+          .tableActions .deleteBtn,
           .deleteBtn {
-            border: 0;
-            border-radius: 12px;
             background: #ffe8e8;
             color: #b42318;
-            padding: 9px 12px;
-            font-weight: 900;
-            cursor: pointer;
           }
 
           @media (max-width: 1000px) {
@@ -807,13 +975,12 @@ export default function CampaignsPage() {
 
             .wide {
               grid-column: span 1;
-              overflow-x: auto;
             }
 
-            header {
+            header,
+            .safetyBanner {
               align-items: flex-start;
               flex-direction: column;
-              gap: 14px;
             }
           }
         `}</style>
