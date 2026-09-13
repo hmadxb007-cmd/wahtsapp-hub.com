@@ -1,5 +1,5 @@
 "use client";
-
+import AuthGuard from "../AuthGuard";
 export default function ContactsPage() {
   const contacts = [
     {
@@ -37,6 +37,7 @@ export default function ContactsPage() {
   ];
 
   return (
+     <AuthGuard>
     <main className="app">
       <aside>
         <a className="brand" href="/">
@@ -478,5 +479,6 @@ export default function ContactsPage() {
         }
       `}</style>
     </main>
+        </AuthGuard>
   );
 }
