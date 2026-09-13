@@ -13,29 +13,82 @@ type Lead = {
   message: string;
   source: string;
   status: string;
+  accountType?: string;
+  packageName?: string;
+  accountStatus?: string;
+  demoStartDate?: string;
+  demoEndDate?: string;
+  createdAt: string;
+};
+
+type Campaign = {
+  id: string;
+  name: string;
+  campaignMode?: string;
+  template: string;
+  iceBreakerTemplate?: string;
+  mainTemplate?: string;
+  date: string;
+  time: string;
+  recipients: number;
+  status: string;
+  safetyStatus?: string;
+  sent: number;
+  delivered: number;
+  replies: number;
+  interestedCount?: number;
+  notInterestedCount?: number;
+  noReplyCount?: number;
   createdAt: string;
 };
 
 export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
-  useEffect(() => {
-    async function loadLeads() {
-      try {
-        const res = await fetch("/api/demo-leads", { cache: "no-store" });
-        const data = await res.json();
+  async function loadData() {
+    try {
+      const leadsRes = await fetch("/api/demo-leads", { cache: "no-store" });
+      const leadsData = await leadsRes.json();
 
-        if (data.ok) {
-          setLeads(data.leads || []);
-        }
-      } catch (error) {
-        console.log("Failed to load demo leads", error);
+      if (leadsData.ok) {
+        setLeads(leadsData.leads || []);
       }
-    }
 
-    loadLeads();
+      const campaignsRes = await fetch("/api/campaigns", { cache: "no-store" });
+      const campaignsData = await campaignsRes.json();
+
+      if (campaignsData.ok) {
+        setCampaigns(campaignsData.campaigns || []);
+      }
+    } catch (error) {
+      console.log("Failed to load dashboard data", error);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
   }, []);
+
+  const totalRecipients = campaigns.reduce(
+    (total, campaign) => total + Number(campaign.recipients || 0),
+    0
+  );
+
+  const totalSent = campaigns.reduce(
+    (total, campaign) => total + Number(campaign.sent || 0),
+    0
+  );
+
+  const totalReplies = campaigns.reduce(
+    (total, campaign) => total + Number(campaign.replies || 0),
+    0
+  );
+
+  const activeDemos = leads.filter(
+    (lead) => (lead.accountStatus || lead.status) === "Demo Active"
+  ).length;
 
   return (
     <AuthGuard>
@@ -74,39 +127,77 @@ export default function DashboardPage() {
               <h1>WhatsApp Business Dashboard</h1>
             </div>
 
-            <a className="siteBtn" href="/">Visit Website</a>
+            <div className="headerActions">
+              <button onClick={loadData}>Refresh</button>
+              <a className="siteBtn" href="/">Visit Website</a>
+            </div>
           </header>
 
           <div className="stats">
             <div>
-              <span>Demo Requests</span>
+              <span>Total Leads</span>
               <b>{leads.length}</b>
             </div>
+
+            <div>
+              <span>Active Demos</span>
+              <b>{activeDemos}</b>
+            </div>
+
+            <div>
+              <span>Total Campaigns</span>
+              <b>{campaigns.length}</b>
+            </div>
+
+            <div>
+              <span>Total Recipients</span>
+              <b>{totalRecipients}</b>
+            </div>
+          </div>
+
+          <div className="stats second">
             <div>
               <span>Messages Sent</span>
-              <b>12,450</b>
+              <b>{totalSent}</b>
             </div>
+
             <div>
-              <span>Leads Synced</span>
-              <b>532</b>
+              <span>Campaign Replies</span>
+              <b>{totalReplies}</b>
             </div>
+
             <div>
-              <span>Open Chats</span>
-              <b>41</b>
+              <span>Paid Clients</span>
+              <b>
+                {
+                  leads.filter(
+                    (lead) => (lead.accountStatus || lead.status) === "Paid Client"
+                  ).length
+                }
+              </b>
+            </div>
+
+            <div>
+              <span>Demo Expired</span>
+              <b>
+                {
+                  leads.filter(
+                    (lead) => (lead.accountStatus || lead.status) === "Expired"
+                  ).length
+                }
+              </b>
             </div>
           </div>
 
           <div className="grid">
             <div className="card wide">
               <div className="cardTop">
-                <h2>Latest Demo Requests</h2>
+                <h2>Latest Leads</h2>
                 <a href="/contacts">View Contacts</a>
               </div>
 
               {leads.length === 0 ? (
-                <div className="empty">
-                  No demo requests yet.
-                </div>
+                <div className="empty">No leads yet.</div>
               ) : (
                 <table>
                   <thead>
@@ -114,24 +205,74 @@ export default function DashboardPage() {
                       <th>Name</th>
                       <th>Company</th>
                       <th>Phone</th>
-                      <th>Email</th>
                       <th>Service</th>
+                      <th>Account</th>
                       <th>Status</th>
                     </tr>
                   </thead>
 
                   <tbody>
                     {leads.slice(0, 8).map((lead) => (
-                      <tr key={lead.id} onClick={() => setSelectedLead(lead)} className="clickableRow">
+                      <tr
+                        key={lead.id}
+                        onClick={() => setSelectedLead(lead)}
+                        className="clickableRow"
+                      >
                         <td>
                           <strong>{lead.name}</strong>
                         </td>
                         <td>{lead.company || "-"}</td>
                         <td>{lead.phone}</td>
-                        <td>{lead.email || "-"}</td>
                         <td>{lead.service}</td>
+                        <td>{lead.accountType || "Lead"}</td>
                         <td>
-                          <em>{lead.status}</em>
+                          <em>{lead.accountStatus || lead.status}</em>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="card wide">
+              <div className="cardTop">
+                <h2>Recent Campaigns</h2>
+                <a href="/campaigns">Open Campaigns</a>
+              </div>
+
+              {campaigns.length === 0 ? (
+                <div className="empty">No campaigns saved yet.</div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Mode</th>
+                      <th>Recipients</th>
+                      <th>Sent</th>
+                      <th>Replies</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {campaigns.slice(0, 8).map((campaign) => (
+                      <tr key={campaign.id}>
+                        <td>
+                          <strong>{campaign.name}</strong>
+                          <small>
+                            {campaign.date || "-"} {campaign.time || ""}
+                          </small>
+                        </td>
+                        <td>{campaign.campaignMode || "Direct Campaign"}</td>
+                        <td>{campaign.recipients}</td>
+                        <td>{campaign.sent}</td>
+                        <td>{campaign.replies}</td>
+                        <td>
+                          <em className={campaign.status === "Draft" ? "draft" : ""}>
+                            {campaign.status}
+                          </em>
                         </td>
                       </tr>
                     ))}
@@ -142,75 +283,43 @@ export default function DashboardPage() {
 
             <div className="card">
               <div className="cardTop">
-                <h2>Agent Inbox</h2>
-                <a href="/inbox">Open Inbox</a>
+                <h2>Safe Marketing Flow</h2>
+                <a href="/campaigns">Create</a>
               </div>
 
-              <div className="chat">
-                <strong>New WhatsApp Lead</strong>
-                <p>Hi, I am interested in your service.</p>
-                <small>Assigned to Sales Team</small>
-              </div>
-
-              <div className="chat">
-                <strong>CRM Client</strong>
-                <p>Can you connect Bitrix24 with WhatsApp?</p>
-                <small>Lead synced</small>
-              </div>
-
-              <div className="chat">
-                <strong>Campaign Reply</strong>
-                <p>Yes, please send me more details.</p>
-                <small>From marketing campaign</small>
+              <div className="steps vertical">
+                <div>1. Import contacts</div>
+                <div>2. Send ice-breaker</div>
+                <div>3. Wait for replies</div>
+                <div>4. Launch main campaign to interested contacts</div>
               </div>
             </div>
 
             <div className="card">
               <div className="cardTop">
-                <h2>Campaign Builder</h2>
-                <a href="/campaigns">New Campaign</a>
-              </div>
-
-              <label>Campaign name</label>
-              <input value="September Offers Campaign" readOnly />
-
-              <label>Template</label>
-              <input value="approved_offer_template" readOnly />
-
-              <div className="miniStats">
-                <div>Imported: 2,350</div>
-                <div>Ready to send</div>
-              </div>
-
-              <button className="greenBtn">Start Campaign</button>
-            </div>
-
-            <div className="card wide">
-              <div className="cardTop">
-                <h2>CRM Sync Workflow</h2>
+                <h2>CRM Sync</h2>
                 <a href="/crm-sync">Configure</a>
               </div>
 
-              <p>Bitrix24 connected. New WhatsApp leads are synced automatically.</p>
+              <p>
+                New demo leads and WhatsApp contacts can be converted into CRM
+                leads, demo accounts or paid clients.
+              </p>
 
-              <div className="steps">
-                <div>New Lead</div>
-                <span>→</span>
-                <div>Copy Number</div>
-                <span>→</span>
-                <div>Assign Agent</div>
-                <span>→</span>
-                <div>Sync CRM</div>
+              <div className="miniStats">
+                <div>{leads.length} contacts ready</div>
+                <div>{activeDemos} active demos</div>
               </div>
             </div>
           </div>
         </section>
+
         {selectedLead && (
           <div className="modalOverlay" onClick={() => setSelectedLead(null)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modalTop">
                 <div>
-                  <span>Demo request details</span>
+                  <span>Lead details</span>
                   <h2>{selectedLead.name}</h2>
                 </div>
 
@@ -239,13 +348,13 @@ export default function DashboardPage() {
                 </div>
 
                 <div>
-                  <small>Status</small>
-                  <strong>{selectedLead.status}</strong>
+                  <small>Account Type</small>
+                  <strong>{selectedLead.accountType || "Lead"}</strong>
                 </div>
 
                 <div>
-                  <small>Source</small>
-                  <strong>{selectedLead.source}</strong>
+                  <small>Status</small>
+                  <strong>{selectedLead.accountStatus || selectedLead.status}</strong>
                 </div>
               </div>
 
@@ -262,17 +371,12 @@ export default function DashboardPage() {
                   Open WhatsApp
                 </a>
 
-                <a href={`tel:${selectedLead.phone}`}>
-                  Call
-                </a>
-
-                <a href={`mailto:${selectedLead.email}`}>
-                  Email
-                </a>
+                <a href="/contacts">Open Contact</a>
               </div>
             </div>
           </div>
         )}
+
         <style jsx>{`
           * {
             box-sizing: border-box;
@@ -331,7 +435,6 @@ export default function DashboardPage() {
             color: #c8dcd4;
             font-weight: 800;
             text-decoration: none;
-            cursor: pointer;
           }
 
           nav a:hover {
@@ -348,9 +451,9 @@ export default function DashboardPage() {
             width: 100%;
             margin-top: 25px;
             padding: 13px 14px;
-            border: 1px solid rgba(255,255,255,0.15);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 13px;
-            background: rgba(255,255,255,0.06);
+            background: rgba(255, 255, 255, 0.06);
             color: #fff;
             font-weight: 900;
             cursor: pointer;
@@ -370,6 +473,7 @@ export default function DashboardPage() {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 18px;
             margin-bottom: 25px;
           }
 
@@ -387,6 +491,13 @@ export default function DashboardPage() {
             letter-spacing: -1px;
           }
 
+          .headerActions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+          }
+
+          .headerActions button,
           .siteBtn,
           .cardTop a {
             background: #075e54;
@@ -396,12 +507,18 @@ export default function DashboardPage() {
             text-decoration: none;
             font-weight: 900;
             font-size: 14px;
+            border: 0;
+            cursor: pointer;
           }
 
           .stats {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 18px;
+            margin-bottom: 18px;
+          }
+
+          .second {
             margin-bottom: 22px;
           }
 
@@ -427,12 +544,13 @@ export default function DashboardPage() {
 
           .grid {
             display: grid;
-            grid-template-columns: 1.1fr 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 18px;
           }
 
           .wide {
             grid-column: span 2;
+            overflow-x: auto;
           }
 
           .cardTop {
@@ -460,6 +578,7 @@ export default function DashboardPage() {
           table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 850px;
           }
 
           th,
@@ -467,12 +586,27 @@ export default function DashboardPage() {
             padding: 16px;
             border-bottom: 1px solid #e4eee8;
             text-align: left;
+            vertical-align: top;
           }
 
           th {
             color: #58746c;
             font-size: 12px;
             text-transform: uppercase;
+          }
+
+          td small {
+            display: block;
+            color: #58746c;
+            margin-top: 5px;
+          }
+
+          .clickableRow {
+            cursor: pointer;
+          }
+
+          .clickableRow:hover {
+            background: #f1faf5;
           }
 
           em {
@@ -486,51 +620,18 @@ export default function DashboardPage() {
             white-space: nowrap;
           }
 
-          .chat {
-            border: 1px solid #dfece6;
-            border-radius: 16px;
-            padding: 15px;
-            margin-bottom: 12px;
-            background: #f8fcfa;
+          em.draft {
+            background: #fff4db;
+            color: #9a6500;
           }
 
-          .chat p {
-            color: #58746c;
-            margin: 8px 0;
-          }
-
-          .chat small {
-            color: #075e54;
-            font-weight: 900;
-          }
-
-          label {
-            display: block;
-            color: #58746c;
-            font-size: 12px;
-            font-weight: 900;
-            margin: 14px 0 7px;
-          }
-
-          input {
-            width: 100%;
-            height: 48px;
-            border: 1px solid #dfece6;
-            border-radius: 14px;
-            padding: 0 14px;
-            font-weight: 800;
-            background: #f8fcfa;
-          }
-
-          .miniStats {
+          .steps.vertical {
             display: grid;
-            grid-template-columns: 1fr 1fr;
             gap: 10px;
-            margin: 18px 0;
           }
 
-          .miniStats div,
-          .steps div {
+          .steps.vertical div,
+          .miniStats div {
             background: #e8f7ef;
             border-radius: 14px;
             padding: 13px;
@@ -538,43 +639,16 @@ export default function DashboardPage() {
             color: #075e54;
           }
 
-          .greenBtn {
-            width: 100%;
-            height: 50px;
-            border: 0;
-            border-radius: 15px;
-            background: #25d366;
-            color: #05251d;
-            font-weight: 950;
-            cursor: pointer;
-          }
-
-          .steps {
-            display: grid;
-            grid-template-columns: 1fr 30px 1fr 30px 1fr 30px 1fr;
-            gap: 10px;
-            align-items: center;
-            margin-top: 18px;
-            text-align: center;
-          }
-
-          .steps span {
-            color: #075e54;
-            font-weight: 950;
-            font-size: 22px;
-          }
-
           .card p {
             color: #58746c;
             line-height: 1.6;
           }
 
-                   .clickableRow {
-            cursor: pointer;
-          }
-
-          .clickableRow:hover {
-            background: #f1faf5;
+          .miniStats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 18px;
           }
 
           .modalOverlay {
@@ -651,10 +725,6 @@ export default function DashboardPage() {
             margin-bottom: 6px;
           }
 
-          .leadDetails strong {
-            color: #071b15;
-          }
-
           .messageBox {
             margin-top: 14px;
           }
@@ -681,6 +751,7 @@ export default function DashboardPage() {
             border-radius: 14px;
             font-weight: 950;
           }
+
           @media (max-width: 1000px) {
             .dashboard {
               flex-direction: column;
@@ -692,21 +763,25 @@ export default function DashboardPage() {
             }
 
             .stats,
-            .grid {
+            .grid,
+            .leadDetails {
               grid-template-columns: 1fr;
             }
 
             .wide {
               grid-column: span 1;
-              overflow-x: auto;
             }
 
-            .steps {
+            header,
+            .headerActions,
+            .cardTop,
+            .modalActions {
+              align-items: flex-start;
+              flex-direction: column;
+            }
+
+            .miniStats {
               grid-template-columns: 1fr;
-            }
-
-            .steps span {
-              display: none;
             }
           }
         `}</style>
