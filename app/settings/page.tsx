@@ -1,7 +1,8 @@
 "use client";
-
+import AuthGuard from "../AuthGuard";
 export default function SettingsPage() {
   return (
+    <AuthGuard>
     <main className="app">
       <aside>
         <a className="brand" href="/">
@@ -417,5 +418,6 @@ export default function SettingsPage() {
         }
       `}</style>
     </main>
+      </AuthGuard>
   );
 }
