@@ -4,28 +4,29 @@ import { useState } from "react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("admin@whatsapp-hub.com");
-  const [password, setPassword] = useState("123456");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   function login() {
-  setError("");
+    setError("");
 
-  const correctEmail = "admin@whatsapp-hub.com";
-  const correctPassword = "123456";
+    const correctEmail = "admin@whatsapp-hub.com";
+    const correctPassword = "123456";
 
-  if (email !== correctEmail || password !== correctPassword) {
-    setError("Invalid email or password.");
-    return;
+    if (email.trim().toLowerCase() !== correctEmail || password !== correctPassword) {
+      setError("Invalid email or password.");
+      return;
+    }
+
+    document.cookie =
+      "wh_hub_session=active; path=/; max-age=604800; SameSite=Lax";
+
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next") || "/dashboard";
+
+    window.location.href = next;
   }
 
-  document.cookie =
-    "wh_hub_session=active; path=/; max-age=604800; SameSite=Lax";
-
-  const params = new URLSearchParams(window.location.search);
-  const next = params.get("next") || "/dashboard";
-
-  window.location.href = next;
-}
   return (
     <main className="page">
       <section className="loginBox">
@@ -53,15 +54,18 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Enter password"
           type="password"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") login();
+          }}
         />
 
         {error && <div className="error">{error}</div>}
 
-        <button onClick={login}>Login to Dashboard</button>
+        <button type="button" onClick={login}>
+          Login to Dashboard
+        </button>
 
-        <small>
-          Demo login: admin@whatsapp-hub.com / 123456
-        </small>
+        <small>Demo login: admin@whatsapp-hub.com / 123456</small>
       </section>
 
       <section className="visual">
