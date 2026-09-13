@@ -125,7 +125,34 @@ export default function ContactsPage() {
       alert("Could not delete contact.");
     }
   }
+  async function updateAccount(action: string, demoDays?: number, packageName?: string) {
+    if (!selectedLead) return;
 
+    try {
+      const res = await fetch("/api/demo-leads", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: selectedLead.id,
+          action,
+          demoDays,
+          packageName,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        await loadLeads();
+        const updatedLead = data.leads.find((lead: Lead) => lead.id === selectedLead.id);
+        setSelectedLead(updatedLead || null);
+      }
+    } catch (error) {
+      alert("Could not update account.");
+    }
+  }
   return (
     <AuthGuard>
       <main className="app">
@@ -370,12 +397,54 @@ export default function ContactsPage() {
                     <strong>{selectedLead.source}</strong>
                   </div>
                 </div>
+                  <div>
+                    <small>Account Type</small>
+                    <strong>{selectedLead.accountType || "Lead"}</strong>
+                  </div>
 
+                  <div>
+                    <small>Package</small>
+                    <strong>{selectedLead.packageName || "None"}</strong>
+                  </div>
+
+                  <div>
+                    <small>Account Status</small>
+                    <strong>{selectedLead.accountStatus || selectedLead.status}</strong>
+                  </div>
+
+                  <div>
+                    <small>Demo Timeline</small>
+                    <strong>
+                      {selectedLead.demoStartDate && selectedLead.demoEndDate
+                        ? `${selectedLead.demoStartDate} to ${selectedLead.demoEndDate}`
+                        : "No demo active"}
+                    </strong>
+                  </div>
                 <div className="messageBox">
                   <small>Message / Note</small>
                   <p>{selectedLead.message || "No message added."}</p>
                 </div>
+                <div className="accountActions">
+                  <button onClick={() => updateAccount("activate_demo", 7, "Basic")}>
+                    Activate 7-Day Demo
+                  </button>
 
+                  <button onClick={() => updateAccount("activate_demo", 14, "Pro")}>
+                    Activate 14-Day Demo
+                  </button>
+
+                  <button onClick={() => updateAccount("mark_paid", undefined, "Pro")}>
+                    Mark as Paid
+                  </button>
+
+                  <button onClick={() => updateAccount("expire_account")}>
+                    Expire
+                  </button>
+
+                  <button onClick={() => updateAccount("mark_lost")}>
+                    Lost
+                  </button>
+                </div>
                 <div className="modalActions">
                   <a
                     href={`https://wa.me/${selectedLead.phone.replace(/[^0-9]/g, "")}`}
@@ -812,7 +881,28 @@ export default function ContactsPage() {
             background: #ffe8e8;
             color: #b42318;
           }
+          .accountActions {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-top: 18px;
+          }
 
+          .accountActions button {
+            border: 0;
+            border-radius: 14px;
+            background: #075e54;
+            color: #fff;
+            padding: 13px 10px;
+            font-weight: 900;
+            cursor: pointer;
+            font-size: 13px;
+          }
+
+          .accountActions button:hover {
+            background: #25d366;
+            color: #05251d;
+          }
           @media (max-width: 1000px) {
             .app {
               flex-direction: column;
@@ -824,11 +914,12 @@ export default function ContactsPage() {
             }
 
             .stats,
-            .grid,
-            .leadDetails,
-            .modalActions {
-              grid-template-columns: 1fr;
-            }
+.grid,
+.leadDetails,
+.modalActions,
+.accountActions {
+  grid-template-columns: 1fr;
+}
 
             .wide {
               grid-column: span 1;
