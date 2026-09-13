@@ -19,23 +19,107 @@ type Lead = {
 export default function ContactsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const [form, setForm] = useState({
+    name: "",
+    company: "",
+    email: "",
+    phone: "",
+    source: "Manual Contact",
+    service: "Manual Contact",
+    message: "",
+  });
+
+  async function loadLeads() {
+    try {
+      const res = await fetch("/api/demo-leads", { cache: "no-store" });
+      const data = await res.json();
+
+      if (data.ok) {
+        setLeads(data.leads || []);
+      }
+    } catch (error) {
+      console.log("Failed to load contacts", error);
+    }
+  }
 
   useEffect(() => {
-    async function loadLeads() {
-      try {
-        const res = await fetch("/api/demo-leads", { cache: "no-store" });
-        const data = await res.json();
-
-        if (data.ok) {
-          setLeads(data.leads || []);
-        }
-      } catch (error) {
-        console.log("Failed to load contacts", error);
-      }
-    }
-
     loadLeads();
   }, []);
+
+  function updateField(field: string, value: string) {
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }
+
+  async function addContact() {
+    if (!form.name || !form.phone) {
+      alert("Please enter name and phone number.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const res = await fetch("/api/demo-leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...form,
+          status: "New Lead",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        setForm({
+          name: "",
+          company: "",
+          email: "",
+          phone: "",
+          source: "Manual Contact",
+          service: "Manual Contact",
+          message: "",
+        });
+
+        await loadLeads();
+      }
+    } catch (error) {
+      alert("Could not save contact.");
+    }
+
+    setSaving(false);
+  }
+
+  async function deleteContact(id: string) {
+    const confirmDelete = confirm("Delete this contact?");
+    if (!confirmDelete) return;
+
+    try {
+      const res = await fetch("/api/demo-leads", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        setSelectedLead(null);
+        await loadLeads();
+      }
+    } catch (error) {
+      alert("Could not delete contact.");
+    }
+  }
 
   return (
     <AuthGuard>
@@ -76,7 +160,7 @@ export default function ContactsPage() {
 
             <div className="actions">
               <button className="secondary">Import Excel</button>
-              <button>Add Contact</button>
+              <button onClick={addContact}>{saving ? "Saving..." : "Add Contact"}</button>
             </div>
           </header>
 
@@ -104,16 +188,39 @@ export default function ContactsPage() {
               <h2>Add New Contact</h2>
 
               <label>Full Name</label>
-              <input placeholder="Customer name" />
+              <input
+                value={form.name}
+                onChange={(e) => updateField("name", e.target.value)}
+                placeholder="Customer name"
+              />
+
+              <label>Company</label>
+              <input
+                value={form.company}
+                onChange={(e) => updateField("company", e.target.value)}
+                placeholder="Company name"
+              />
 
               <label>WhatsApp Number</label>
-              <input placeholder="+971 50 000 0000" />
+              <input
+                value={form.phone}
+                onChange={(e) => updateField("phone", e.target.value)}
+                placeholder="+971 50 000 0000"
+              />
 
               <label>Email</label>
-              <input placeholder="customer@example.com" />
+              <input
+                value={form.email}
+                onChange={(e) => updateField("email", e.target.value)}
+                placeholder="customer@example.com"
+              />
 
               <label>Lead Source</label>
-              <select>
+              <select
+                value={form.source}
+                onChange={(e) => updateField("source", e.target.value)}
+              >
+                <option>Manual Contact</option>
                 <option>Website Demo</option>
                 <option>WhatsApp Inbox</option>
                 <option>Marketing Campaign</option>
@@ -121,7 +228,16 @@ export default function ContactsPage() {
                 <option>CRM Sync</option>
               </select>
 
-              <button className="primary">Save Contact</button>
+              <label>Message / Note</label>
+              <textarea
+                value={form.message}
+                onChange={(e) => updateField("message", e.target.value)}
+                placeholder="Add note about this contact..."
+              />
+
+              <button className="primary" onClick={addContact}>
+                {saving ? "Saving Contact..." : "Save Contact"}
+              </button>
             </div>
 
             <div className="card segmentCard">
@@ -140,15 +256,15 @@ export default function ContactsPage() {
                   <strong>Demo Requests</strong>
                   <p>Leads from website demo form</p>
                 </div>
-                <b>{leads.length}</b>
+                <b>{leads.filter((lead) => lead.source === "Website Demo Form").length}</b>
               </div>
 
               <div className="segment">
                 <div>
-                  <strong>Campaign Replies</strong>
-                  <p>Contacts who replied to marketing</p>
+                  <strong>Manual Contacts</strong>
+                  <p>Contacts added by your team</p>
                 </div>
-                <b>0</b>
+                <b>{leads.filter((lead) => lead.source === "Manual Contact").length}</b>
               </div>
 
               <div className="segment">
@@ -251,7 +367,7 @@ export default function ContactsPage() {
                 </div>
 
                 <div className="messageBox">
-                  <small>Message</small>
+                  <small>Message / Note</small>
                   <p>{selectedLead.message || "No message added."}</p>
                 </div>
 
@@ -266,6 +382,10 @@ export default function ContactsPage() {
                   <a href={`tel:${selectedLead.phone}`}>Call</a>
 
                   <a href={`mailto:${selectedLead.email}`}>Email</a>
+
+                  <button onClick={() => deleteContact(selectedLead.id)}>
+                    Delete
+                  </button>
                 </div>
               </div>
             </div>
@@ -453,9 +573,9 @@ export default function ContactsPage() {
           }
 
           input,
-          select {
+          select,
+          textarea {
             width: 100%;
-            height: 50px;
             border: 1px solid #dcebe5;
             border-radius: 14px;
             padding: 0 14px;
@@ -464,8 +584,21 @@ export default function ContactsPage() {
             background: #fff;
           }
 
+          input,
+          select {
+            height: 50px;
+          }
+
+          textarea {
+            min-height: 95px;
+            padding-top: 14px;
+            resize: vertical;
+            line-height: 1.5;
+          }
+
           input:focus,
-          select:focus {
+          select:focus,
+          textarea:focus {
             border-color: #25d366;
           }
 
@@ -578,7 +711,7 @@ export default function ContactsPage() {
 
           .modal {
             width: 100%;
-            max-width: 720px;
+            max-width: 760px;
             background: #fff;
             border-radius: 28px;
             padding: 28px;
@@ -650,13 +783,14 @@ export default function ContactsPage() {
           }
 
           .modalActions {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
             gap: 10px;
             margin-top: 18px;
           }
 
-          .modalActions a {
-            flex: 1;
+          .modalActions a,
+          .modalActions button {
             text-align: center;
             background: #25d366;
             color: #05251d;
@@ -664,6 +798,14 @@ export default function ContactsPage() {
             padding: 14px;
             border-radius: 14px;
             font-weight: 950;
+            border: 0;
+            cursor: pointer;
+            font-size: 14px;
+          }
+
+          .modalActions button {
+            background: #ffe8e8;
+            color: #b42318;
           }
 
           @media (max-width: 1000px) {
@@ -678,7 +820,8 @@ export default function ContactsPage() {
 
             .stats,
             .grid,
-            .leadDetails {
+            .leadDetails,
+            .modalActions {
               grid-template-columns: 1fr;
             }
 
@@ -695,10 +838,6 @@ export default function ContactsPage() {
 
             .tableTop input {
               max-width: 100%;
-            }
-
-            .modalActions {
-              flex-direction: column;
             }
           }
         `}</style>
