@@ -19,6 +19,18 @@ type Settings = {
   messageDelay: string;
 };
 
+type BotSettings = {
+  fixedRepliesEnabled: boolean;
+  aiRepliesEnabled: boolean;
+  assistantEnabled: boolean;
+  interestedReply: string;
+  notInterestedReply: string;
+  dncReply: string;
+  noReplyNote: string;
+  aiBusinessInstructions: string;
+  updatedAt: string;
+};
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({
     companyName: "",
@@ -36,6 +48,22 @@ export default function SettingsPage() {
     messageDelay: "2 seconds",
   });
 
+  const [botSettings, setBotSettings] = useState<BotSettings>({
+    fixedRepliesEnabled: true,
+    aiRepliesEnabled: false,
+    assistantEnabled: true,
+    interestedReply:
+      "Thank you for your interest. Our team will send you the details shortly.",
+    notInterestedReply:
+      "Thank you for your reply. No problem, we will not send this offer again.",
+    dncReply:
+      "You have been removed from our WhatsApp marketing list. You will not receive future promotional messages.",
+    noReplyNote: "No reply received yet.",
+    aiBusinessInstructions:
+      "You are a polite WhatsApp business assistant. Reply professionally, keep messages short, do not pressure customers, respect opt-out requests, and only continue marketing if the customer shows interest.",
+    updatedAt: "",
+  });
+
   const [saving, setSaving] = useState(false);
 
   async function loadSettings() {
@@ -45,6 +73,13 @@ export default function SettingsPage() {
 
       if (data.ok) {
         setSettings(data.settings);
+      }
+
+      const botRes = await fetch("/api/bot-settings", { cache: "no-store" });
+      const botData = await botRes.json();
+
+      if (botData.ok) {
+        setBotSettings(botData.settings);
       }
     } catch (error) {
       console.log("Failed to load settings", error);
@@ -57,6 +92,13 @@ export default function SettingsPage() {
 
   function updateField(field: keyof Settings, value: string) {
     setSettings((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }
+
+  function updateBotField(field: keyof BotSettings, value: string | boolean) {
+    setBotSettings((prev) => ({
       ...prev,
       [field]: value,
     }));
@@ -76,10 +118,20 @@ export default function SettingsPage() {
 
       const data = await res.json();
 
-      if (data.ok) {
-        setSettings(data.settings);
-        alert("Settings saved successfully.");
-      }
+      const botRes = await fetch("/api/bot-settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(botSettings),
+      });
+
+      const botData = await botRes.json();
+
+      if (data.ok) setSettings(data.settings);
+      if (botData.ok) setBotSettings(botData.settings);
+
+      alert("Settings saved successfully.");
     } catch (error) {
       alert("Could not save settings.");
     }
@@ -194,7 +246,7 @@ export default function SettingsPage() {
               />
 
               <div className="hint">
-                Use these values when setting up the Meta WhatsApp webhook.
+                Use this webhook URL and verify token inside Meta WhatsApp app settings.
               </div>
             </div>
 
@@ -274,6 +326,86 @@ export default function SettingsPage() {
 
               <button className="primary" onClick={saveSettings}>
                 {saving ? "Saving..." : "Save All Settings"}
+              </button>
+            </div>
+
+            <div className="card wide">
+              <h2>Bot Auto Replies</h2>
+
+              <div className="toggleGrid">
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={botSettings.fixedRepliesEnabled}
+                    onChange={(e) =>
+                      updateBotField("fixedRepliesEnabled", e.target.checked)
+                    }
+                  />
+                  <span>Fixed Auto Replies Enabled</span>
+                </label>
+
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={botSettings.aiRepliesEnabled}
+                    onChange={(e) =>
+                      updateBotField("aiRepliesEnabled", e.target.checked)
+                    }
+                  />
+                  <span>AI Automation Replies Enabled</span>
+                </label>
+
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={botSettings.assistantEnabled}
+                    onChange={(e) =>
+                      updateBotField("assistantEnabled", e.target.checked)
+                    }
+                  />
+                  <span>Internal AI Assistant Enabled</span>
+                </label>
+              </div>
+
+              <label>Interested Auto Reply</label>
+              <textarea
+                value={botSettings.interestedReply}
+                onChange={(e) =>
+                  updateBotField("interestedReply", e.target.value)
+                }
+              />
+
+              <label>Not Interested Auto Reply</label>
+              <textarea
+                value={botSettings.notInterestedReply}
+                onChange={(e) =>
+                  updateBotField("notInterestedReply", e.target.value)
+                }
+              />
+
+              <label>DNC / STOP Auto Reply</label>
+              <textarea
+                value={botSettings.dncReply}
+                onChange={(e) => updateBotField("dncReply", e.target.value)}
+              />
+
+              <label>AI Business Instructions</label>
+              <textarea
+                className="largeText"
+                value={botSettings.aiBusinessInstructions}
+                onChange={(e) =>
+                  updateBotField("aiBusinessInstructions", e.target.value)
+                }
+              />
+
+              <div className="hint">
+                Fixed replies will be used immediately in the campaign contact
+                status flow. AI replies will be connected later with OpenAI API
+                and Meta webhook.
+              </div>
+
+              <button className="primary saveBot" onClick={saveSettings}>
+                {saving ? "Saving Bot Settings..." : "Save Bot Settings"}
               </button>
             </div>
           </div>
@@ -407,6 +539,10 @@ export default function SettingsPage() {
             box-shadow: 0 18px 50px rgba(8, 42, 31, 0.05);
           }
 
+          .wide {
+            grid-column: span 2;
+          }
+
           h2 {
             margin: 0 0 20px;
             font-size: 24px;
@@ -422,9 +558,9 @@ export default function SettingsPage() {
           }
 
           input,
-          select {
+          select,
+          textarea {
             width: 100%;
-            height: 50px;
             border: 1px solid #dcebe5;
             border-radius: 14px;
             padding: 0 14px;
@@ -433,8 +569,25 @@ export default function SettingsPage() {
             background: #fff;
           }
 
+          input,
+          select {
+            height: 50px;
+          }
+
+          textarea {
+            min-height: 90px;
+            padding-top: 14px;
+            line-height: 1.5;
+            resize: vertical;
+          }
+
+          .largeText {
+            min-height: 140px;
+          }
+
           input:focus,
-          select:focus {
+          select:focus,
+          textarea:focus {
             border-color: #25d366;
           }
 
@@ -471,15 +624,44 @@ export default function SettingsPage() {
             color: #075e54;
           }
 
-          .status b,
-          .status span {
-            display: block;
-          }
-
           .primary {
             width: 100%;
             height: 52px;
             margin-top: auto;
+          }
+
+          .toggleGrid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-bottom: 20px;
+          }
+
+          .toggle {
+            background: #f8fcfa;
+            border: 1px solid #e4eee8;
+            border-radius: 16px;
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            color: #071b15;
+            text-transform: none;
+            font-size: 14px;
+            cursor: pointer;
+          }
+
+          .toggle input {
+            width: auto;
+            height: auto;
+          }
+
+          .toggle span {
+            font-weight: 900;
+          }
+
+          .saveBot {
+            margin-top: 18px;
           }
 
           @media (max-width: 1000px) {
@@ -492,8 +674,13 @@ export default function SettingsPage() {
               min-height: auto;
             }
 
-            .grid {
+            .grid,
+            .toggleGrid {
               grid-template-columns: 1fr;
+            }
+
+            .wide {
+              grid-column: span 1;
             }
 
             header {
