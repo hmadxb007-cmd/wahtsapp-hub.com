@@ -18,6 +18,7 @@ type Lead = {
 
 export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   useEffect(() => {
     async function loadLeads() {
@@ -121,7 +122,7 @@ export default function DashboardPage() {
 
                   <tbody>
                     {leads.slice(0, 8).map((lead) => (
-                      <tr key={lead.id}>
+                      <tr key={lead.id} onClick={() => setSelectedLead(lead)} className="clickableRow">
                         <td>
                           <strong>{lead.name}</strong>
                         </td>
@@ -204,7 +205,74 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
+        {selectedLead && (
+          <div className="modalOverlay" onClick={() => setSelectedLead(null)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modalTop">
+                <div>
+                  <span>Demo request details</span>
+                  <h2>{selectedLead.name}</h2>
+                </div>
 
+                <button onClick={() => setSelectedLead(null)}>Close</button>
+              </div>
+
+              <div className="leadDetails">
+                <div>
+                  <small>Company</small>
+                  <strong>{selectedLead.company || "-"}</strong>
+                </div>
+
+                <div>
+                  <small>Phone</small>
+                  <strong>{selectedLead.phone}</strong>
+                </div>
+
+                <div>
+                  <small>Email</small>
+                  <strong>{selectedLead.email || "-"}</strong>
+                </div>
+
+                <div>
+                  <small>Service</small>
+                  <strong>{selectedLead.service}</strong>
+                </div>
+
+                <div>
+                  <small>Status</small>
+                  <strong>{selectedLead.status}</strong>
+                </div>
+
+                <div>
+                  <small>Source</small>
+                  <strong>{selectedLead.source}</strong>
+                </div>
+              </div>
+
+              <div className="messageBox">
+                <small>Message</small>
+                <p>{selectedLead.message || "No message added."}</p>
+              </div>
+
+              <div className="modalActions">
+                <a
+                  href={`https://wa.me/${selectedLead.phone.replace(/[^0-9]/g, "")}`}
+                  target="_blank"
+                >
+                  Open WhatsApp
+                </a>
+
+                <a href={`tel:${selectedLead.phone}`}>
+                  Call
+                </a>
+
+                <a href={`mailto:${selectedLead.email}`}>
+                  Email
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
         <style jsx>{`
           * {
             box-sizing: border-box;
@@ -501,6 +569,118 @@ export default function DashboardPage() {
             line-height: 1.6;
           }
 
+                   .clickableRow {
+            cursor: pointer;
+          }
+
+          .clickableRow:hover {
+            background: #f1faf5;
+          }
+
+          .modalOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            z-index: 999;
+          }
+
+          .modal {
+            width: 100%;
+            max-width: 720px;
+            background: #fff;
+            border-radius: 28px;
+            padding: 28px;
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.25);
+          }
+
+          .modalTop {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            margin-bottom: 22px;
+          }
+
+          .modalTop span {
+            color: #075e54;
+            font-weight: 950;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.7px;
+          }
+
+          .modalTop h2 {
+            margin-top: 6px;
+          }
+
+          .modalTop button {
+            border: 0;
+            border-radius: 14px;
+            background: #075e54;
+            color: #fff;
+            padding: 12px 16px;
+            font-weight: 900;
+            cursor: pointer;
+          }
+
+          .leadDetails {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+          }
+
+          .leadDetails div,
+          .messageBox {
+            background: #f8fcfa;
+            border: 1px solid #e4eee8;
+            border-radius: 16px;
+            padding: 15px;
+          }
+
+          .leadDetails small,
+          .messageBox small {
+            display: block;
+            color: #58746c;
+            font-size: 12px;
+            font-weight: 950;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+          }
+
+          .leadDetails strong {
+            color: #071b15;
+          }
+
+          .messageBox {
+            margin-top: 14px;
+          }
+
+          .messageBox p {
+            margin: 0;
+            color: #58746c;
+            line-height: 1.6;
+          }
+
+          .modalActions {
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+          }
+
+          .modalActions a {
+            flex: 1;
+            text-align: center;
+            background: #25d366;
+            color: #05251d;
+            text-decoration: none;
+            padding: 14px;
+            border-radius: 14px;
+            font-weight: 950;
+          }
           @media (max-width: 1000px) {
             .dashboard {
               flex-direction: column;
