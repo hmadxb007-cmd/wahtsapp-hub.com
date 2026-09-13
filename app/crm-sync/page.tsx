@@ -1,7 +1,8 @@
 "use client";
-
+import AuthGuard from "../AuthGuard";
 export default function CrmSyncPage() {
   return (
+    <AuthGuard>
     <main className="app">
       <aside>
         <a className="brand" href="/">
@@ -544,5 +545,6 @@ export default function CrmSyncPage() {
         }
       `}</style>
     </main>
+      </AuthGuard>
   );
 }
