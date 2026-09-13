@@ -54,7 +54,7 @@ export default function DashboardPage() {
           <div className="card inbox">
             <div className="cardTop">
               <h2>Agent Inbox</h2>
-              <a href="/app/inbox">Open Inbox</a>
+              <a href="/inbox">Open Inbox</a>
             </div>
 
             <div className="chat">
@@ -79,7 +79,7 @@ export default function DashboardPage() {
           <div className="card">
             <div className="cardTop">
               <h2>Campaign Builder</h2>
-              <a href="/app/campaigns">New Campaign</a>
+              <a href="/campaigns">New Campaign</a>
             </div>
 
             <label>Campaign name</label>
@@ -99,7 +99,7 @@ export default function DashboardPage() {
           <div className="card wide">
             <div className="cardTop">
               <h2>CRM Sync Workflow</h2>
-              <a href="/app/crm-sync">Configure</a>
+              <a href="/crm-sync">Configure</a>
             </div>
 
             <p>Bitrix24 connected. New WhatsApp leads are synced automatically.</p>
@@ -118,7 +118,7 @@ export default function DashboardPage() {
           <div className="card">
             <div className="cardTop">
               <h2>Connection Status</h2>
-              <a href="/app/settings">Settings</a>
+              <a href="/settings">Settings</a>
             </div>
 
             <div className="status">✓ Meta WhatsApp API Connected</div>
