@@ -53,10 +53,10 @@ export async function POST(request: Request) {
     company: body.company || "",
     email: body.email || "",
     phone: body.phone || "",
-    service: body.service || "",
+    service: body.service || "Manual Contact",
     message: body.message || "",
-    source: "Website Demo Form",
-    status: "New Lead",
+    source: body.source || "Manual Contact",
+    status: body.status || "New Lead",
     createdAt: new Date().toISOString(),
   };
 
@@ -67,5 +67,17 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     lead,
+  });
+}
+
+export async function DELETE(request: Request) {
+  const body = await request.json();
+  const leads = readLeads();
+
+  const filtered = leads.filter((lead: any) => lead.id !== body.id);
+  writeLeads(filtered);
+
+  return NextResponse.json({
+    ok: true,
   });
 }
