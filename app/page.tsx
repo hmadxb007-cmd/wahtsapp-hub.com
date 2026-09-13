@@ -16,12 +16,12 @@ export default function HomePage() {
           <a href="#services">Services</a>
           <a href="#integrations">Integrations</a>
           <a href="#features">Features</a>
-          <a href="#pricing">Pricing</a>
+          <a href="/pricing">Pricing</a>
         </div>
 
         <div className="navActions">
-          <a className="login" href="#demo">Login</a>
-          <a className="navCta" href="#demo">Request Demo</a>
+          <a className="login" href="/login">Login</a>
+          <a className="navCta" href="/demo">Request Demo</a>
         </div>
       </nav>
 
