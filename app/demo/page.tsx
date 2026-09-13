@@ -8,37 +8,39 @@ export default function DemoPage() {
     company: "",
     email: "",
     phone: "",
-    service: "Both CRM Integration and Marketing",
+    service: "WhatsApp CRM Integration",
     message: "",
   });
-const [submitted, setSubmitted] = useState(false);
-  function update(field: string, value: string) {
-    setForm((current) => ({
-      ...current,
+
+  const [submitted, setSubmitted] = useState(false);
+
+  function updateField(field: string, value: string) {
+    setForm((prev) => ({
+      ...prev,
       [field]: value,
     }));
   }
 
   async function requestDemo() {
-  setSubmitted(false);
+    setSubmitted(false);
 
-  if (!form.name || !form.phone) {
-    alert("Please enter name and phone number.");
-    return;
-  }
+    if (!form.name || !form.phone) {
+      alert("Please enter name and phone number.");
+      return;
+    }
 
-  try {
-    await fetch("/api/demo-leads", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(form),
-    });
+    try {
+      await fetch("/api/demo-leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form),
+      });
 
-    setSubmitted(true);
+      setSubmitted(true);
 
-    const text = `
+      const text = `
 Hi, I want a demo for WhatsApp Hub.
 
 Name: ${form.name}
@@ -47,201 +49,281 @@ Email: ${form.email}
 Phone: ${form.phone}
 Service: ${form.service}
 Message: ${form.message}
-    `.trim();
+      `.trim();
 
-    const whatsappNumber = "971504265343";
-    const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`;
+      const whatsappNumber = "971504265343";
+      const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`;
 
-    window.open(url, "_blank");
-  } catch (error) {
-    alert("Something went wrong. Please try again.");
+      window.open(url, "_blank");
+    } catch (error) {
+      alert("Something went wrong. Please try again.");
+    }
   }
-}
 
   return (
     <main className="page">
+      <nav className="topbar">
+        <a className="brand" href="/">
+          <div>W</div>
+          <strong>WhatsApp Hub</strong>
+        </a>
+
+        <div className="links">
+          <a href="/">Home</a>
+          <a href="/pricing">Pricing</a>
+          <a href="/login">Login</a>
+        </div>
+      </nav>
+
       <section className="hero">
-        <a className="back" href="/">← Back to Home</a>
+        <div className="left">
+          <span>Request demo</span>
+          <h1>See how WhatsApp Hub can work for your business</h1>
+          <p>
+            Book a demo for WhatsApp CRM integration, marketing campaigns,
+            templates, contacts and CRM sync.
+          </p>
 
-        <div className="grid">
-          <div>
-            <span>Request demo</span>
-            <h1>See how WhatsApp Hub can grow your business.</h1>
-            <p>
-              Book a demo for WhatsApp CRM integration, bulk WhatsApp marketing,
-              Meta Cloud API setup, templates and agent inbox automation.
-            </p>
+          <div className="benefits">
+            <div>
+              <b>CRM Integration</b>
+              <small>Connect WhatsApp with Bitrix24 and other CRMs.</small>
+            </div>
 
-            <div className="points">
-              <div>✓ WhatsApp Cloud API setup</div>
-              <div>✓ CRM integration consultation</div>
-              <div>✓ Campaign and template setup</div>
-              <div>✓ Agent inbox workflow demo</div>
+            <div>
+              <b>Bulk Campaigns</b>
+              <small>Send approved WhatsApp templates to your audience.</small>
+            </div>
+
+            <div>
+              <b>Agent Inbox</b>
+              <small>Manage all customer replies in one team inbox.</small>
             </div>
           </div>
+        </div>
 
-          <form className="form" onSubmit={(event) => event.preventDefault()}>
-            <h2>Request a Demo</h2>
+        <div className="formCard">
+          <h2>Request a Demo</h2>
+          <p>Fill the form and we will contact you on WhatsApp.</p>
 
-            <input
-              placeholder="Your name"
-              value={form.name}
-              onChange={(event) => update("name", event.target.value)}
-            />
+          <label>Full Name</label>
+          <input
+            value={form.name}
+            onChange={(e) => updateField("name", e.target.value)}
+            placeholder="Your name"
+          />
 
-            <input
-              placeholder="Company name"
-              value={form.company}
-              onChange={(event) => update("company", event.target.value)}
-            />
+          <label>Company Name</label>
+          <input
+            value={form.company}
+            onChange={(e) => updateField("company", e.target.value)}
+            placeholder="Company name"
+          />
 
-            <input
-              placeholder="Business email"
-              value={form.email}
-              onChange={(event) => update("email", event.target.value)}
-            />
+          <label>Email Address</label>
+          <input
+            value={form.email}
+            onChange={(e) => updateField("email", e.target.value)}
+            placeholder="email@example.com"
+          />
 
-            <input
-              placeholder="WhatsApp number"
-              value={form.phone}
-              onChange={(event) => update("phone", event.target.value)}
-            />
+          <label>WhatsApp Number</label>
+          <input
+            value={form.phone}
+            onChange={(e) => updateField("phone", e.target.value)}
+            placeholder="+971 50 000 0000"
+          />
 
-            <select
-              value={form.service}
-              onChange={(event) => update("service", event.target.value)}
-            >
-              <option>Both CRM Integration and Marketing</option>
-              <option>WhatsApp CRM Integration only</option>
-              <option>WhatsApp Marketing Campaigns only</option>
-              <option>Meta WhatsApp API setup only</option>
-            </select>
+          <label>Service Required</label>
+          <select
+            value={form.service}
+            onChange={(e) => updateField("service", e.target.value)}
+          >
+            <option>WhatsApp CRM Integration</option>
+            <option>WhatsApp Marketing Campaigns</option>
+            <option>CRM + Marketing Package</option>
+            <option>Meta WhatsApp API Setup</option>
+          </select>
 
-            <textarea
-              placeholder="Tell us what you need"
-              value={form.message}
-              onChange={(event) => update("message", event.target.value)}
-            />
+          <label>Message</label>
+          <textarea
+            value={form.message}
+            onChange={(e) => updateField("message", e.target.value)}
+            placeholder="Tell us what you need..."
+          />
 
-            <button type="button" onClick={requestDemo}>
-              Request Demo on WhatsApp
-            </button>
-            {submitted && (
-  <div className="success">
-    Demo request saved successfully. WhatsApp will open now.
-  </div>
-)}
+          <button type="button" onClick={requestDemo}>
+            Request Demo on WhatsApp
+          </button>
 
-            <small>
-              For now this sends the request to WhatsApp. Later we will save it in your dashboard also.
-            </small>
-          </form>
+          {submitted && (
+            <div className="success">
+              Demo request saved successfully. WhatsApp will open now.
+            </div>
+          )}
         </div>
       </section>
 
-      <style jsx>
-        .success {
-  margin-top: 14px;
-  background: #e8f7ef;
-  color: #075e54;
-  border: 1px solid #bde9cf;
-  border-radius: 14px;
-  padding: 13px 15px;
-  font-weight: 900;
-}{`
+      <style jsx>{`
         * {
           box-sizing: border-box;
         }
 
         .page {
           min-height: 100vh;
+          background: #f6fbf8;
+          color: #071b15;
           font-family: Inter, Arial, sans-serif;
-          background:
-            linear-gradient(90deg, rgba(3, 16, 13, 0.92), rgba(3, 16, 13, 0.55)),
-            url("/images/hero-dubai-cover.png");
-          background-size: cover;
-          background-position: center right;
-          color: #fff;
         }
 
-        .hero {
-          min-height: 100vh;
-          padding: 36px 7vw 80px;
+        .topbar {
+          height: 86px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 7vw;
+          background: #fff;
+          border-bottom: 1px solid #e4eee8;
         }
 
-        .back {
-          display: inline-flex;
-          color: #fff;
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 12px;
           text-decoration: none;
-          margin-bottom: 70px;
-          font-weight: 800;
+          color: #071b15;
         }
 
-        .grid {
-          display: grid;
-          grid-template-columns: 1fr 470px;
-          gap: 60px;
+        .brand div {
+          width: 42px;
+          height: 42px;
+          border-radius: 14px;
+          background: #25d366;
+          color: #061812;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 950;
+        }
+
+        .brand strong {
+          font-size: 20px;
+        }
+
+        .links {
+          display: flex;
+          gap: 22px;
           align-items: center;
         }
 
-        span {
-          display: inline-flex;
-          background: rgba(255, 255, 255, 0.12);
-          border: 1px solid rgba(255, 255, 255, 0.18);
-          color: #d6fff0;
-          border-radius: 999px;
-          padding: 9px 14px;
-          font-size: 12px;
-          font-weight: 900;
-          text-transform: uppercase;
+        .links a {
+          color: #26423a;
+          text-decoration: none;
+          font-weight: 850;
         }
 
-        h1 {
-          font-size: clamp(48px, 5vw, 78px);
-          line-height: 0.95;
-          letter-spacing: -3px;
-          margin: 22px 0;
-          max-width: 760px;
+        .links a:hover {
+          color: #075e54;
         }
 
-        p {
-          color: #d8ebe5;
-          font-size: 20px;
-          line-height: 1.7;
-          max-width: 680px;
-        }
-
-        .points {
+        .hero {
+          min-height: calc(100vh - 86px);
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 14px;
-          margin-top: 35px;
+          grid-template-columns: 1fr 520px;
+          gap: 42px;
+          padding: 70px 7vw;
+          align-items: center;
+          background:
+            linear-gradient(90deg, rgba(246, 251, 248, 0.96), rgba(246, 251, 248, 0.75)),
+            url("/images/hero-dubai-cover.png");
+          background-size: cover;
+          background-position: center right;
+        }
+
+        .left {
           max-width: 720px;
         }
 
-        .points div {
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.16);
-          border-radius: 16px;
-          padding: 16px;
-          font-weight: 800;
-          backdrop-filter: blur(10px);
+        .left > span {
+          color: #075e54;
+          font-weight: 950;
+          text-transform: uppercase;
+          font-size: 13px;
+          letter-spacing: 0.8px;
         }
 
-        .form {
-          background: #fff;
-          color: #071b15;
-          border-radius: 30px;
-          padding: 30px;
-          box-shadow: 0 35px 90px rgba(0, 0, 0, 0.3);
-          display: flex;
-          flex-direction: column;
+        h1 {
+          margin: 12px 0 18px;
+          font-size: 58px;
+          line-height: 1.02;
+          letter-spacing: -2.2px;
+        }
+
+        .left p {
+          max-width: 620px;
+          margin: 0 0 28px;
+          color: #58746c;
+          font-size: 18px;
+          line-height: 1.7;
+        }
+
+        .benefits {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
           gap: 14px;
+          margin-top: 30px;
         }
 
-        h2 {
-          margin: 0 0 10px;
+        .benefits div {
+          background: #fff;
+          border: 1px solid #e4eee8;
+          border-radius: 22px;
+          padding: 20px;
+          box-shadow: 0 18px 50px rgba(8, 42, 31, 0.05);
+        }
+
+        .benefits b,
+        .benefits small {
+          display: block;
+        }
+
+        .benefits b {
+          margin-bottom: 8px;
+          color: #075e54;
+        }
+
+        .benefits small {
+          color: #58746c;
+          line-height: 1.5;
+        }
+
+        .formCard {
+          background: #fff;
+          border: 1px solid #e4eee8;
+          border-radius: 30px;
+          padding: 32px;
+          box-shadow: 0 25px 70px rgba(8, 42, 31, 0.12);
+        }
+
+        .formCard h2 {
+          margin: 0 0 8px;
           font-size: 30px;
+          letter-spacing: -1px;
+        }
+
+        .formCard p {
+          margin: 0 0 20px;
+          color: #58746c;
+          line-height: 1.5;
+        }
+
+        label {
+          display: block;
+          margin: 14px 0 7px;
+          color: #58746c;
+          font-size: 12px;
+          font-weight: 950;
+          text-transform: uppercase;
         }
 
         input,
@@ -250,21 +332,22 @@ Message: ${form.message}
           width: 100%;
           border: 1px solid #dcebe5;
           border-radius: 15px;
-          padding: 0 15px;
-          font-size: 15px;
-          font-weight: 700;
+          padding: 0 14px;
+          font-weight: 800;
           outline: none;
+          background: #fff;
         }
 
         input,
         select {
-          height: 53px;
+          height: 50px;
         }
 
         textarea {
-          min-height: 110px;
-          padding-top: 15px;
+          min-height: 105px;
+          padding-top: 14px;
           resize: vertical;
+          line-height: 1.5;
         }
 
         input:focus,
@@ -274,28 +357,69 @@ Message: ${form.message}
         }
 
         button {
-          height: 55px;
+          width: 100%;
+          height: 54px;
           border: 0;
           border-radius: 16px;
           background: #25d366;
           color: #05251d;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          text-decoration: none;
           font-weight: 950;
+          margin-top: 20px;
           cursor: pointer;
+          font-size: 15px;
         }
 
-        small {
-          color: #6d837b;
-          line-height: 1.5;
+        button:hover {
+          background: #1fc65d;
         }
 
-        @media (max-width: 900px) {
-          .grid,
-          .points {
+        .success {
+          margin-top: 14px;
+          background: #e8f7ef;
+          color: #075e54;
+          border: 1px solid #bde9cf;
+          border-radius: 14px;
+          padding: 13px 15px;
+          font-weight: 900;
+        }
+
+        @media (max-width: 1050px) {
+          .hero {
             grid-template-columns: 1fr;
+          }
+
+          h1 {
+            font-size: 44px;
+          }
+
+          .benefits {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 700px) {
+          .topbar {
+            height: auto;
+            padding: 18px 24px;
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 18px;
+          }
+
+          .links {
+            flex-wrap: wrap;
+          }
+
+          .hero {
+            padding: 40px 24px;
+          }
+
+          h1 {
+            font-size: 36px;
+          }
+
+          .formCard {
+            padding: 24px;
           }
         }
       `}</style>
