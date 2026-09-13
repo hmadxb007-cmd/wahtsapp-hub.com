@@ -1,5 +1,5 @@
 "use client";
-
+import AuthGuard from "../AuthGuard";
 export default function TemplatesPage() {
   const templates = [
     {
@@ -33,6 +33,7 @@ export default function TemplatesPage() {
   ];
 
   return (
+    <AuthGuard>
     <main className="app">
       <aside>
         <a className="brand" href="/">
@@ -460,5 +461,6 @@ export default function TemplatesPage() {
         }
       `}</style>
     </main>
+      </AuthGuard>
   );
 }
