@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import AuthGuard from "../AuthGuard";
 
 type Campaign = {
@@ -18,8 +19,12 @@ type Campaign = {
 };
 
 export default function CampaignsPage() {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [saving, setSaving] = useState(false);
+  const [importedNumbers, setImportedNumbers] = useState<string[]>([]);
+  const [importFileName, setImportFileName] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -52,6 +57,52 @@ export default function CampaignsPage() {
       ...prev,
       [field]: value,
     }));
+  }
+
+  function cleanPhone(value: any) {
+    return String(value || "")
+      .replace(/\s/g, "")
+      .replace(/-/g, "")
+      .replace(/\(/g, "")
+      .replace(/\)/g, "")
+      .trim();
+  }
+
+  async function importExcel(file: File) {
+    setImportFileName(file.name);
+
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const firstSheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[firstSheetName];
+
+    const rows: any[][] = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      defval: "",
+    });
+
+    const numbers: string[] = [];
+
+    rows.forEach((row) => {
+      row.forEach((cell) => {
+        const phone = cleanPhone(cell);
+
+        if (
+          phone &&
+          phone.length >= 8 &&
+          /^[+0-9]+$/.test(phone)
+        ) {
+          numbers.push(phone);
+        }
+      });
+    });
+
+    const uniqueNumbers = Array.from(new Set(numbers));
+
+    setImportedNumbers(uniqueNumbers);
+    updateField("recipients", String(uniqueNumbers.length));
+
+    alert(`${uniqueNumbers.length} WhatsApp numbers imported successfully.`);
   }
 
   async function saveCampaign() {
@@ -89,6 +140,9 @@ export default function CampaignsPage() {
           recipients: "0",
           status: "Draft",
         });
+
+        setImportedNumbers([]);
+        setImportFileName("");
 
         await loadCampaigns();
       }
@@ -225,8 +279,35 @@ export default function CampaignsPage() {
 
               <div className="upload">
                 <strong>Import Excel Numbers</strong>
-                <p>Coming next: upload Excel file with WhatsApp numbers.</p>
-                <button type="button">Import File</button>
+                <p>
+                  Upload Excel file with WhatsApp numbers. System will count
+                  unique numbers automatically.
+                </p>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) importExcel(file);
+                  }}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Import File
+                </button>
+
+                {importFileName && (
+                  <div className="importInfo">
+                    <b>{importFileName}</b>
+                    <span>{importedNumbers.length} numbers imported</span>
+                  </div>
+                )}
               </div>
 
               <button className="primary" type="button" onClick={saveCampaign}>
@@ -244,7 +325,8 @@ export default function CampaignsPage() {
                 </div>
 
                 <div className="message">
-                  🏙️ Discover exclusive Dubai property offers. Reply YES for details.
+                  🏙️ Discover exclusive Dubai property offers. Reply YES for
+                  details.
                 </div>
 
                 <div className="message reply">YES</div>
@@ -260,12 +342,25 @@ export default function CampaignsPage() {
                   <span>Total Recipients</span>
                   <b>
                     {campaigns.reduce(
-                      (total, campaign) => total + Number(campaign.recipients || 0),
+                      (total, campaign) =>
+                        total + Number(campaign.recipients || 0),
                       0
                     )}
                   </b>
                 </div>
               </div>
+
+              {importedNumbers.length > 0 && (
+                <div className="numberPreview">
+                  <strong>Imported Numbers Preview</strong>
+                  {importedNumbers.slice(0, 5).map((number) => (
+                    <span key={number}>{number}</span>
+                  ))}
+                  {importedNumbers.length > 5 && (
+                    <small>+{importedNumbers.length - 5} more numbers</small>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="card wide">
@@ -304,7 +399,11 @@ export default function CampaignsPage() {
                         <td>{campaign.delivered}</td>
                         <td>{campaign.replies}</td>
                         <td>
-                          <em className={campaign.status === "Draft" ? "draft" : ""}>
+                          <em
+                            className={
+                              campaign.status === "Draft" ? "draft" : ""
+                            }
+                          >
                             {campaign.status}
                           </em>
                         </td>
@@ -391,9 +490,9 @@ export default function CampaignsPage() {
             width: 100%;
             margin-top: 25px;
             padding: 13px 14px;
-            border: 1px solid rgba(255,255,255,0.15);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 13px;
-            background: rgba(255,255,255,0.06);
+            background: rgba(255, 255, 255, 0.06);
             color: #fff;
             font-weight: 900;
             cursor: pointer;
@@ -517,6 +616,25 @@ export default function CampaignsPage() {
             padding: 12px 16px;
           }
 
+          .importInfo {
+            margin-top: 14px;
+            background: #fff;
+            border: 1px solid #dcebe5;
+            border-radius: 14px;
+            padding: 13px;
+          }
+
+          .importInfo b,
+          .importInfo span {
+            display: block;
+          }
+
+          .importInfo span {
+            color: #075e54;
+            font-weight: 900;
+            margin-top: 5px;
+          }
+
           .primary {
             width: 100%;
             height: 52px;
@@ -590,6 +708,33 @@ export default function CampaignsPage() {
 
           .statusBox b {
             font-size: 24px;
+          }
+
+          .numberPreview {
+            margin-top: 18px;
+            background: #f8fcfa;
+            border: 1px solid #e4eee8;
+            border-radius: 18px;
+            padding: 16px;
+          }
+
+          .numberPreview strong,
+          .numberPreview span,
+          .numberPreview small {
+            display: block;
+          }
+
+          .numberPreview span {
+            padding: 8px 0;
+            border-bottom: 1px solid #e4eee8;
+            color: #075e54;
+            font-weight: 850;
+          }
+
+          .numberPreview small {
+            color: #58746c;
+            margin-top: 10px;
+            font-weight: 800;
           }
 
           .empty {
