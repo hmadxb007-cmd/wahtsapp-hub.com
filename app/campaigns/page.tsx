@@ -1,7 +1,8 @@
 "use client";
-
+import AuthGuard from "../AuthGuard";
 export default function CampaignsPage() {
   return (
+    <AuthGuard>
     <main className="app">
       <aside>
         <a className="brand" href="/">
@@ -450,5 +451,6 @@ export default function CampaignsPage() {
         }
       `}</style>
     </main>
+      </AuthGuard>
   );
 }
