@@ -19,7 +19,25 @@ export default function DemoPage() {
     }));
   }
 
-  function requestDemo() {
+  async function requestDemo() {
+  setSubmitted(false);
+
+  if (!form.name || !form.phone) {
+    alert("Please enter name and phone number.");
+    return;
+  }
+
+  try {
+    await fetch("/api/demo-leads", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(form),
+    });
+
+    setSubmitted(true);
+
     const text = `
 Hi, I want a demo for WhatsApp Hub.
 
@@ -35,7 +53,10 @@ Message: ${form.message}
     const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`;
 
     window.open(url, "_blank");
+  } catch (error) {
+    alert("Something went wrong. Please try again.");
   }
+}
 
   return (
     <main className="page">
