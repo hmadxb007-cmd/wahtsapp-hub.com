@@ -4,9 +4,10 @@ import path from "path";
 
 export const dynamic = "force-dynamic";
 
-const filePath = path.join(process.cwd(), "data", "campaigns.json");
+const campaignsFilePath = path.join(process.cwd(), "data", "campaigns.json");
+const safetyFilePath = path.join(process.cwd(), "data", "safety-contacts.json");
 
-function ensureFile() {
+function ensureFile(filePath: string, defaultValue: string = "[]") {
   const dir = path.dirname(filePath);
 
   if (!fs.existsSync(dir)) {
@@ -14,12 +15,12 @@ function ensureFile() {
   }
 
   if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, "[]", "utf8");
+    fs.writeFileSync(filePath, defaultValue, "utf8");
   }
 }
 
-function readCampaigns() {
-  ensureFile();
+function readJson(filePath: string) {
+  ensureFile(filePath);
 
   const raw = fs.readFileSync(filePath, "utf8");
 
@@ -30,9 +31,18 @@ function readCampaigns() {
   }
 }
 
-function writeCampaigns(campaigns: any[]) {
-  ensureFile();
-  fs.writeFileSync(filePath, JSON.stringify(campaigns, null, 2), "utf8");
+function writeJson(filePath: string, data: any) {
+  ensureFile(filePath);
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+}
+
+function cleanPhone(value: any) {
+  return String(value || "")
+    .replace(/\s/g, "")
+    .replace(/-/g, "")
+    .replace(/\(/g, "")
+    .replace(/\)/g, "")
+    .trim();
 }
 
 function normalizeRecipientsList(list: any[]) {
@@ -42,7 +52,7 @@ function normalizeRecipientsList(list: any[]) {
     .map((item) => {
       if (typeof item === "string") {
         return {
-          phone: item,
+          phone: cleanPhone(item),
           status: "No Reply",
           reply: "",
           updatedAt: "",
@@ -50,7 +60,7 @@ function normalizeRecipientsList(list: any[]) {
       }
 
       return {
-        phone: item.phone || "",
+        phone: cleanPhone(item.phone),
         status: item.status || "No Reply",
         reply: item.reply || "",
         updatedAt: item.updatedAt || "",
@@ -63,8 +73,77 @@ function countStatus(list: any[], status: string) {
   return list.filter((item) => item.status === status).length;
 }
 
+function getGlobalStatus(status: string) {
+  if (status === "Interested") return "Interested";
+  if (status === "Not Interested") return "Not Interested";
+  if (status === "Do Not Contact") return "Do Not Contact";
+  return "No Reply";
+}
+
+function syncSafetyContact({
+  phone,
+  status,
+  reply,
+  campaignId,
+  campaignName,
+}: {
+  phone: string;
+  status: string;
+  reply: string;
+  campaignId: string;
+  campaignName: string;
+}) {
+  const contacts = readJson(safetyFilePath);
+  const cleanedPhone = cleanPhone(phone);
+
+  if (!cleanedPhone) return;
+
+  const existingIndex = contacts.findIndex(
+    (contact: any) => contact.phone === cleanedPhone
+  );
+
+  const historyItem = {
+    campaignId,
+    campaignName,
+    status,
+    reply,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const newContact = {
+    phone: cleanedPhone,
+    globalStatus: getGlobalStatus(status),
+    lastStatus: status,
+    lastReply: reply || "",
+    sourceCampaignId: campaignId,
+    sourceCampaignName: campaignName,
+    campaignHistory: [historyItem],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (existingIndex >= 0) {
+    const existing = contacts[existingIndex];
+
+    contacts[existingIndex] = {
+      ...existing,
+      globalStatus: getGlobalStatus(status),
+      lastStatus: status,
+      lastReply: reply || existing.lastReply || "",
+      sourceCampaignId: campaignId,
+      sourceCampaignName: campaignName,
+      campaignHistory: [...(existing.campaignHistory || []), historyItem],
+      updatedAt: new Date().toISOString(),
+    };
+  } else {
+    contacts.unshift(newContact);
+  }
+
+  writeJson(safetyFilePath, contacts);
+}
+
 export async function GET() {
-  const campaigns = readCampaigns();
+  const campaigns = readJson(campaignsFilePath);
 
   return NextResponse.json({
     ok: true,
@@ -124,9 +203,9 @@ export async function POST(request: Request) {
     createdAt: new Date().toISOString(),
   };
 
-  const campaigns = readCampaigns();
+  const campaigns = readJson(campaignsFilePath);
   campaigns.unshift(campaign);
-  writeCampaigns(campaigns);
+  writeJson(campaignsFilePath, campaigns);
 
   return NextResponse.json({
     ok: true,
@@ -136,7 +215,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const body = await request.json();
-  const campaigns = readCampaigns();
+  const campaigns = readJson(campaignsFilePath);
 
   const updatedCampaigns = campaigns.map((campaign: any) => {
     if (campaign.id !== body.id) return campaign;
@@ -145,14 +224,24 @@ export async function PATCH(request: Request) {
 
     if (body.action === "update_recipient_status") {
       const updatedList = currentList.map((recipient) => {
-        if (recipient.phone !== body.phone) return recipient;
+        if (recipient.phone !== cleanPhone(body.phone)) return recipient;
 
-        return {
+        const updatedRecipient = {
           ...recipient,
           status: body.status || recipient.status,
           reply: body.reply || recipient.reply || "",
           updatedAt: new Date().toISOString(),
         };
+
+        syncSafetyContact({
+          phone: updatedRecipient.phone,
+          status: updatedRecipient.status,
+          reply: updatedRecipient.reply,
+          campaignId: campaign.id,
+          campaignName: campaign.name,
+        });
+
+        return updatedRecipient;
       });
 
       return {
@@ -177,7 +266,9 @@ export async function PATCH(request: Request) {
       updates = {
         status: "Waiting Replies",
         sent: campaign.recipients || currentList.length || 0,
-        delivered: Math.floor((campaign.recipients || currentList.length || 0) * 0.92),
+        delivered: Math.floor(
+          (campaign.recipients || currentList.length || 0) * 0.92
+        ),
         safetyStatus: "Ice-breaker sent. Waiting for interested replies.",
       };
     }
@@ -221,7 +312,7 @@ export async function PATCH(request: Request) {
     };
   });
 
-  writeCampaigns(updatedCampaigns);
+  writeJson(campaignsFilePath, updatedCampaigns);
 
   return NextResponse.json({
     ok: true,
@@ -231,10 +322,10 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   const body = await request.json();
-  const campaigns = readCampaigns();
+  const campaigns = readJson(campaignsFilePath);
 
   const filtered = campaigns.filter((campaign: any) => campaign.id !== body.id);
-  writeCampaigns(filtered);
+  writeJson(campaignsFilePath, filtered);
 
   return NextResponse.json({
     ok: true,
