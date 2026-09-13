@@ -11,14 +11,14 @@ export default function DashboardPage() {
         </a>
 
         <nav>
-          <a className="active" href="/app/dashboard">Dashboard</a>
-          <a href="/app/inbox">Inbox</a>
-          <a href="/app/campaigns">Campaigns</a>
-          <a href="/app/templates">Templates</a>
-          <a href="/app/contacts">Contacts</a>
-          <a href="/app/crm-sync">CRM Sync</a>
-          <a href="/app/settings">Settings</a>
-        </nav>
+  <a className="active" href="/dashboard">Dashboard</a>
+  <a href="/inbox">Inbox</a>
+  <a href="/campaigns">Campaigns</a>
+  <a href="/templates">Templates</a>
+  <a href="/contacts">Contacts</a>
+  <a href="/crm-sync">CRM Sync</a>
+  <a href="/settings">Settings</a>
+</nav>
       </aside>
 
       <section>
