@@ -568,9 +568,8 @@ export default function HomePage() {
         }
 
         .heroMedia {
-          position: relative;
-          min-height: 600px;
-        }
+  display: none;
+}
 
         .photoCard {
           position: absolute;
