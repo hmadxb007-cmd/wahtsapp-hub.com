@@ -35,22 +35,24 @@ export default function CampaignsPage() {
             <h2>Create New Campaign</h2>
 
             <label>Campaign Name</label>
-            <input placeholder="Example: September Dubai Property Offers" />
+            <input placeholder="Example: Dubai Property Launch Campaign" />
 
             <label>Choose Approved Template</label>
             <select>
               <option>property_offer_template</option>
               <option>appointment_reminder_template</option>
               <option>new_launch_invitation</option>
+              <option>crm_demo_invite</option>
             </select>
 
             <div className="row">
               <div>
-                <label>Date</label>
+                <label>Start Date</label>
                 <input type="date" />
               </div>
+
               <div>
-                <label>Time</label>
+                <label>Start Time</label>
                 <input type="time" />
               </div>
             </div>
@@ -60,11 +62,11 @@ export default function CampaignsPage() {
 
             <div className="upload">
               <strong>Import Excel Numbers</strong>
-              <p>Upload one Excel column with phone numbers only.</p>
-              <button>Import File</button>
+              <p>Upload one Excel column with WhatsApp numbers only.</p>
+              <button type="button">Import File</button>
             </div>
 
-            <button className="primary">Save Campaign</button>
+            <button className="primary" type="button">Save Campaign</button>
           </div>
 
           <div className="card preview">
@@ -80,9 +82,7 @@ export default function CampaignsPage() {
                 🏙️ Discover exclusive Dubai property offers. Reply YES for details.
               </div>
 
-              <div className="message reply">
-                YES
-              </div>
+              <div className="message reply">YES</div>
             </div>
 
             <div className="statusBox">
@@ -90,8 +90,9 @@ export default function CampaignsPage() {
                 <span>Recipients</span>
                 <b>2,350</b>
               </div>
+
               <div>
-                <span>Estimated time</span>
+                <span>Estimated Time</span>
                 <b>35 min</b>
               </div>
             </div>
@@ -111,6 +112,7 @@ export default function CampaignsPage() {
                   <th>Status</th>
                 </tr>
               </thead>
+
               <tbody>
                 <tr>
                   <td>Dubai Property Offers</td>
@@ -120,6 +122,7 @@ export default function CampaignsPage() {
                   <td>532</td>
                   <td><em>Completed</em></td>
                 </tr>
+
                 <tr>
                   <td>CRM Demo Invite</td>
                   <td>demo_invitation</td>
@@ -128,6 +131,7 @@ export default function CampaignsPage() {
                   <td>118</td>
                   <td><em>Completed</em></td>
                 </tr>
+
                 <tr>
                   <td>September Follow-up</td>
                   <td>follow_up_template</td>
@@ -143,7 +147,9 @@ export default function CampaignsPage() {
       </section>
 
       <style jsx>{`
-        * { box-sizing: border-box; }
+        * {
+          box-sizing: border-box;
+        }
 
         .app {
           min-height: 100vh;
@@ -219,11 +225,13 @@ export default function CampaignsPage() {
           font-weight: 900;
           text-transform: uppercase;
           font-size: 12px;
+          letter-spacing: 0.7px;
         }
 
         h1 {
           margin: 7px 0 0;
           font-size: 36px;
+          letter-spacing: -1px;
         }
 
         header button,
