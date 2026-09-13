@@ -1,6 +1,42 @@
 "use client";
 
+import { useState } from "react";
+
 export default function DemoPage() {
+  const [form, setForm] = useState({
+    name: "",
+    company: "",
+    email: "",
+    phone: "",
+    service: "Both CRM Integration and Marketing",
+    message: "",
+  });
+
+  function update(field: string, value: string) {
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function requestDemo() {
+    const text = `
+Hi, I want a demo for WhatsApp Hub.
+
+Name: ${form.name}
+Company: ${form.company}
+Email: ${form.email}
+Phone: ${form.phone}
+Service: ${form.service}
+Message: ${form.message}
+    `.trim();
+
+    const whatsappNumber = "971509998888";
+    const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`;
+
+    window.open(url, "_blank");
+  }
+
   return (
     <main className="page">
       <section className="hero">
@@ -23,33 +59,55 @@ export default function DemoPage() {
             </div>
           </div>
 
-          <form className="form">
+          <form className="form" onSubmit={(event) => event.preventDefault()}>
             <h2>Request a Demo</h2>
 
-            <input placeholder="Your name" />
-            <input placeholder="Company name" />
-            <input placeholder="Business email" />
-            <input placeholder="WhatsApp number" />
+            <input
+              placeholder="Your name"
+              value={form.name}
+              onChange={(event) => update("name", event.target.value)}
+            />
 
-            <select>
+            <input
+              placeholder="Company name"
+              value={form.company}
+              onChange={(event) => update("company", event.target.value)}
+            />
+
+            <input
+              placeholder="Business email"
+              value={form.email}
+              onChange={(event) => update("email", event.target.value)}
+            />
+
+            <input
+              placeholder="WhatsApp number"
+              value={form.phone}
+              onChange={(event) => update("phone", event.target.value)}
+            />
+
+            <select
+              value={form.service}
+              onChange={(event) => update("service", event.target.value)}
+            >
               <option>Both CRM Integration and Marketing</option>
               <option>WhatsApp CRM Integration only</option>
               <option>WhatsApp Marketing Campaigns only</option>
               <option>Meta WhatsApp API setup only</option>
             </select>
 
-            <textarea placeholder="Tell us what you need"></textarea>
+            <textarea
+              placeholder="Tell us what you need"
+              value={form.message}
+              onChange={(event) => update("message", event.target.value)}
+            />
 
-            <a
-              className="submit"
-              href="https://wa.me/971509998888?text=Hi%2C%20I%20want%20a%20demo%20for%20WhatsApp%20Hub"
-              target="_blank"
-            >
+            <button type="button" onClick={requestDemo}>
               Request Demo on WhatsApp
-            </a>
+            </button>
 
             <small>
-              Replace this WhatsApp number later with your official business number.
+              For now this sends the request to WhatsApp. Later we will save it in your dashboard also.
             </small>
           </form>
         </div>
@@ -180,8 +238,9 @@ export default function DemoPage() {
           border-color: #25d366;
         }
 
-        .submit {
+        button {
           height: 55px;
+          border: 0;
           border-radius: 16px;
           background: #25d366;
           color: #05251d;
@@ -190,6 +249,7 @@ export default function DemoPage() {
           justify-content: center;
           text-decoration: none;
           font-weight: 950;
+          cursor: pointer;
         }
 
         small {
