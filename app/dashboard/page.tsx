@@ -207,7 +207,22 @@ export default function DashboardPage() {
           background: #25d366;
           color: #061812;
         }
+.logout {
+  width: 100%;
+  margin-top: 25px;
+  padding: 13px 14px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 13px;
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
 
+.logout:hover {
+  background: #25d366;
+  color: #061812;
+}
         section {
           flex: 1;
           padding: 32px;
