@@ -1,5 +1,5 @@
 "use client";
-
+import AuthGuard from "../AuthGuard";
 export default function InboxPage() {
   const chats = [
     {
@@ -30,6 +30,7 @@ export default function InboxPage() {
   ];
 
   return (
+    <AuthGuard>
     <main className="app">
       <aside>
         <a className="brand" href="/">
@@ -574,5 +575,6 @@ export default function InboxPage() {
         }
       `}</style>
     </main>
+      </AuthGuard>
   );
 }
