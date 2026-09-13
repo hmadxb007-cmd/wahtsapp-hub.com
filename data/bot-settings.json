@@ -1,0 +1,11 @@
+{
+  "fixedRepliesEnabled": true,
+  "aiRepliesEnabled": false,
+  "assistantEnabled": true,
+  "interestedReply": "Thank you for your interest. Our team will send you the details shortly.",
+  "notInterestedReply": "Thank you for your reply. No problem, we will not send this offer again.",
+  "dncReply": "You have been removed from our WhatsApp marketing list. You will not receive future promotional messages.",
+  "noReplyNote": "No reply received yet.",
+  "aiBusinessInstructions": "You are a polite WhatsApp business assistant. Reply professionally, keep messages short, do not pressure customers, respect opt-out requests, and only continue marketing if the customer shows interest.",
+  "updatedAt": ""
+}
