@@ -38,7 +38,7 @@ export default function InboxPage() {
         </a>
 
         <nav>
-          <a href="/app/dashboard">Dashboard</a>
+          <a href="/dashboard">Dashboard</a>
           <a className="active" href="/app/inbox">Inbox</a>
           <a href="/campaigns">Campaigns</a>
           <a href="/templates">Templates</a>
