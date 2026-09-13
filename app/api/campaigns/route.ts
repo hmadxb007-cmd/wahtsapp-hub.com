@@ -35,6 +35,34 @@ function writeCampaigns(campaigns: any[]) {
   fs.writeFileSync(filePath, JSON.stringify(campaigns, null, 2), "utf8");
 }
 
+function normalizeRecipientsList(list: any[]) {
+  if (!Array.isArray(list)) return [];
+
+  return list
+    .map((item) => {
+      if (typeof item === "string") {
+        return {
+          phone: item,
+          status: "No Reply",
+          reply: "",
+          updatedAt: "",
+        };
+      }
+
+      return {
+        phone: item.phone || "",
+        status: item.status || "No Reply",
+        reply: item.reply || "",
+        updatedAt: item.updatedAt || "",
+      };
+    })
+    .filter((item) => item.phone);
+}
+
+function countStatus(list: any[], status: string) {
+  return list.filter((item) => item.status === status).length;
+}
+
 export async function GET() {
   const campaigns = readCampaigns();
 
@@ -48,6 +76,12 @@ export async function POST(request: Request) {
   const body = await request.json();
 
   const campaignMode = body.campaignMode || "Direct Campaign";
+  const recipientsList = normalizeRecipientsList(body.recipientsList || []);
+
+  const recipientsCount =
+    recipientsList.length > 0
+      ? recipientsList.length
+      : Number(body.recipients || 0);
 
   const campaign = {
     id: Date.now().toString(),
@@ -61,7 +95,8 @@ export async function POST(request: Request) {
 
     date: body.date || "",
     time: body.time || "",
-    recipients: Number(body.recipients || 0),
+    recipients: recipientsCount,
+    recipientsList,
 
     status:
       body.status ||
@@ -78,9 +113,13 @@ export async function POST(request: Request) {
     delivered: 0,
     replies: 0,
 
-    interestedCount: 0,
-    notInterestedCount: 0,
-    noReplyCount: Number(body.recipients || 0),
+    interestedCount: countStatus(recipientsList, "Interested"),
+    notInterestedCount: countStatus(recipientsList, "Not Interested"),
+    doNotContactCount: countStatus(recipientsList, "Do Not Contact"),
+    noReplyCount:
+      recipientsList.length > 0
+        ? countStatus(recipientsList, "No Reply")
+        : recipientsCount,
 
     createdAt: new Date().toISOString(),
   };
@@ -102,25 +141,56 @@ export async function PATCH(request: Request) {
   const updatedCampaigns = campaigns.map((campaign: any) => {
     if (campaign.id !== body.id) return campaign;
 
+    const currentList = normalizeRecipientsList(campaign.recipientsList || []);
+
+    if (body.action === "update_recipient_status") {
+      const updatedList = currentList.map((recipient) => {
+        if (recipient.phone !== body.phone) return recipient;
+
+        return {
+          ...recipient,
+          status: body.status || recipient.status,
+          reply: body.reply || recipient.reply || "",
+          updatedAt: new Date().toISOString(),
+        };
+      });
+
+      return {
+        ...campaign,
+        recipientsList: updatedList,
+        recipients: updatedList.length || campaign.recipients || 0,
+        interestedCount: countStatus(updatedList, "Interested"),
+        notInterestedCount: countStatus(updatedList, "Not Interested"),
+        doNotContactCount: countStatus(updatedList, "Do Not Contact"),
+        noReplyCount: countStatus(updatedList, "No Reply"),
+        replies:
+          countStatus(updatedList, "Interested") +
+          countStatus(updatedList, "Not Interested") +
+          countStatus(updatedList, "Do Not Contact"),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
     let updates: any = {};
 
     if (body.action === "start_icebreaker") {
       updates = {
         status: "Waiting Replies",
-        sent: campaign.recipients || 0,
-        delivered: Math.floor((campaign.recipients || 0) * 0.92),
-        replies: Math.floor((campaign.recipients || 0) * 0.12),
-        interestedCount: Math.floor((campaign.recipients || 0) * 0.08),
-        notInterestedCount: Math.floor((campaign.recipients || 0) * 0.04),
-        noReplyCount: Math.floor((campaign.recipients || 0) * 0.88),
+        sent: campaign.recipients || currentList.length || 0,
+        delivered: Math.floor((campaign.recipients || currentList.length || 0) * 0.92),
         safetyStatus: "Ice-breaker sent. Waiting for interested replies.",
       };
     }
 
     if (body.action === "prepare_main_campaign") {
+      const interestedCount = countStatus(currentList, "Interested");
+
       updates = {
         status: "Main Campaign Ready",
-        safetyStatus: "Main campaign limited to interested contacts only.",
+        safetyStatus:
+          interestedCount > 0
+            ? `Main campaign limited to ${interestedCount} interested contacts only.`
+            : "No interested contacts found yet.",
       };
     }
 
@@ -131,10 +201,23 @@ export async function PATCH(request: Request) {
       };
     }
 
-    return {
+    const merged = {
       ...campaign,
       ...updates,
       updatedAt: new Date().toISOString(),
+    };
+
+    const finalList = normalizeRecipientsList(merged.recipientsList || []);
+
+    return {
+      ...merged,
+      interestedCount: countStatus(finalList, "Interested"),
+      notInterestedCount: countStatus(finalList, "Not Interested"),
+      doNotContactCount: countStatus(finalList, "Do Not Contact"),
+      noReplyCount:
+        finalList.length > 0
+          ? countStatus(finalList, "No Reply")
+          : merged.noReplyCount ?? merged.recipients,
     };
   });
 
