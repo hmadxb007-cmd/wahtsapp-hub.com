@@ -439,16 +439,23 @@ export default function HomePage() {
           font-weight: 900;
         }
 
-        .hero {
-          min-height: 720px;
-          background:
-            linear-gradient(90deg, rgba(3, 22, 17, 0.96), rgba(5, 49, 39, 0.82), rgba(255, 255, 255, 0.08)),
-            url("https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1800&q=90");
-          background-size: cover;
-          background-position: center;
-          position: relative;
-          overflow: hidden;
-        }
+       .hero {
+  min-height: 760px;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(3, 16, 13, 0.82) 0%,
+      rgba(3, 16, 13, 0.68) 32%,
+      rgba(3, 16, 13, 0.30) 58%,
+      rgba(3, 16, 13, 0.08) 100%
+    ),
+    url("/images/hero-dubai-cover.png");
+  background-size: cover;
+  background-position: center right;
+  background-repeat: no-repeat;
+  position: relative;
+  overflow: hidden;
+}
 
         .hero::after {
           content: "";
