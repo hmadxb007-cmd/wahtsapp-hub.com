@@ -1,0 +1,15 @@
+{
+  "companyName": "",
+  "supportEmail": "",
+  "businessPhone": "",
+  "wabaId": "",
+  "phoneNumberId": "",
+  "accessToken": "",
+  "webhookUrl": "https://whatsapp-hub.com/api/meta/webhook",
+  "verifyToken": "whatsapp_hub_verify_token",
+  "crmType": "Bitrix24",
+  "crmWebhookUrl": "",
+  "timezone": "Asia/Dubai",
+  "dailyLimit": "1000",
+  "messageDelay": "2 seconds"
+}
