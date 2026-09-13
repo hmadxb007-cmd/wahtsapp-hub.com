@@ -25,10 +25,21 @@ type Campaign = {
   createdAt: string;
 };
 
+type Template = {
+  id: string;
+  name: string;
+  category: string;
+  language: string;
+  body: string;
+  status: string;
+  createdAt: string;
+};
+
 export default function CampaignsPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [saving, setSaving] = useState(false);
   const [importedNumbers, setImportedNumbers] = useState<string[]>([]);
   const [importFileName, setImportFileName] = useState("");
@@ -36,30 +47,51 @@ export default function CampaignsPage() {
   const [form, setForm] = useState({
     name: "",
     campaignMode: "Ice-Breaker Campaign",
-    template: "property_offer_template",
-    iceBreakerTemplate: "soft_permission_intro",
-    mainTemplate: "property_offer_template",
+    template: "",
+    iceBreakerTemplate: "",
+    mainTemplate: "",
     date: "",
     time: "",
     recipients: "0",
     status: "Ice-Breaker Ready",
   });
 
-  async function loadCampaigns() {
+  async function loadData() {
     try {
-      const res = await fetch("/api/campaigns", { cache: "no-store" });
-      const data = await res.json();
+      const campaignsRes = await fetch("/api/campaigns", { cache: "no-store" });
+      const campaignsData = await campaignsRes.json();
 
-      if (data.ok) {
-        setCampaigns(data.campaigns || []);
+      if (campaignsData.ok) {
+        setCampaigns(campaignsData.campaigns || []);
+      }
+
+      const templatesRes = await fetch("/api/templates", { cache: "no-store" });
+      const templatesData = await templatesRes.json();
+
+      if (templatesData.ok) {
+        const savedTemplates = templatesData.templates || [];
+        setTemplates(savedTemplates);
+
+        if (savedTemplates.length > 0) {
+          const firstApproved =
+            savedTemplates.find((t: Template) => t.status === "Approved") ||
+            savedTemplates[0];
+
+          setForm((prev) => ({
+            ...prev,
+            template: prev.template || firstApproved.name,
+            iceBreakerTemplate: prev.iceBreakerTemplate || firstApproved.name,
+            mainTemplate: prev.mainTemplate || firstApproved.name,
+          }));
+        }
       }
     } catch (error) {
-      console.log("Failed to load campaigns", error);
+      console.log("Failed to load campaigns/templates", error);
     }
   }
 
   useEffect(() => {
-    loadCampaigns();
+    loadData();
   }, []);
 
   function updateField(field: string, value: string) {
@@ -85,6 +117,11 @@ export default function CampaignsPage() {
       .replace(/\(/g, "")
       .replace(/\)/g, "")
       .trim();
+  }
+
+  function getTemplateBody(templateName: string) {
+    const found = templates.find((template) => template.name === templateName);
+    return found?.body || "Create and approve a template first from Templates page.";
   }
 
   async function importExcel(file: File) {
@@ -131,6 +168,11 @@ export default function CampaignsPage() {
       return;
     }
 
+    if (templates.length === 0) {
+      alert("Please create at least one template first.");
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -161,9 +203,9 @@ export default function CampaignsPage() {
         setForm({
           name: "",
           campaignMode: "Ice-Breaker Campaign",
-          template: "property_offer_template",
-          iceBreakerTemplate: "soft_permission_intro",
-          mainTemplate: "property_offer_template",
+          template: templates[0]?.name || "",
+          iceBreakerTemplate: templates[0]?.name || "",
+          mainTemplate: templates[0]?.name || "",
           date: "",
           time: "",
           recipients: "0",
@@ -173,7 +215,7 @@ export default function CampaignsPage() {
         setImportedNumbers([]);
         setImportFileName("");
 
-        await loadCampaigns();
+        await loadData();
       }
     } catch (error) {
       alert("Could not save campaign.");
@@ -195,7 +237,7 @@ export default function CampaignsPage() {
       const data = await res.json();
 
       if (data.ok) {
-        await loadCampaigns();
+        await loadData();
       }
     } catch (error) {
       alert("Could not update campaign.");
@@ -218,12 +260,15 @@ export default function CampaignsPage() {
       const data = await res.json();
 
       if (data.ok) {
-        await loadCampaigns();
+        await loadData();
       }
     } catch (error) {
       alert("Could not delete campaign.");
     }
   }
+
+  const approvedTemplates = templates.filter((template) => template.status === "Approved");
+  const usableTemplates = approvedTemplates.length > 0 ? approvedTemplates : templates;
 
   return (
     <AuthGuard>
@@ -269,18 +314,24 @@ export default function CampaignsPage() {
 
           <div className="safetyBanner">
             <div>
-              <strong>Ice-Breaker Mode</strong>
+              <strong>Real Template Selection</strong>
               <p>
-                Start with a soft permission message, collect interested replies,
-                then launch the main campaign only to warm contacts.
+                Campaigns now use templates saved from your Templates page.
+                Ice-breaker flow helps you start carefully before launching the main campaign.
               </p>
             </div>
-            <b>Safer Flow</b>
+            <a href="/templates">Manage Templates</a>
           </div>
 
           <div className="grid">
             <div className="card builder">
               <h2>Create Campaign</h2>
+
+              {templates.length === 0 && (
+                <div className="warning">
+                  No templates found. Create templates first from the Templates page.
+                </div>
+              )}
 
               <label>Campaign Mode</label>
               <select
@@ -307,10 +358,11 @@ export default function CampaignsPage() {
                       updateField("iceBreakerTemplate", e.target.value)
                     }
                   >
-                    <option>soft_permission_intro</option>
-                    <option>business_intro_yes_reply</option>
-                    <option>crm_solution_interest_check</option>
-                    <option>real_estate_interest_check</option>
+                    {usableTemplates.map((template) => (
+                      <option key={template.id} value={template.name}>
+                        {template.name} ({template.status})
+                      </option>
+                    ))}
                   </select>
 
                   <label>Main Campaign Template</label>
@@ -318,10 +370,11 @@ export default function CampaignsPage() {
                     value={form.mainTemplate}
                     onChange={(e) => updateField("mainTemplate", e.target.value)}
                   >
-                    <option>property_offer_template</option>
-                    <option>crm_demo_invite</option>
-                    <option>new_launch_invitation</option>
-                    <option>appointment_reminder_template</option>
+                    {usableTemplates.map((template) => (
+                      <option key={template.id} value={template.name}>
+                        {template.name} ({template.status})
+                      </option>
+                    ))}
                   </select>
                 </>
               ) : (
@@ -331,10 +384,11 @@ export default function CampaignsPage() {
                     value={form.template}
                     onChange={(e) => updateField("template", e.target.value)}
                   >
-                    <option>property_offer_template</option>
-                    <option>appointment_reminder_template</option>
-                    <option>new_launch_invitation</option>
-                    <option>crm_demo_invite</option>
+                    {usableTemplates.map((template) => (
+                      <option key={template.id} value={template.name}>
+                        {template.name} ({template.status})
+                      </option>
+                    ))}
                   </select>
                 </>
               )}
@@ -409,50 +463,42 @@ export default function CampaignsPage() {
             </div>
 
             <div className="card preview">
-              <h2>Campaign Flow</h2>
-
-              {form.campaignMode === "Ice-Breaker Campaign" ? (
-                <div className="flow">
-                  <div className="flowStep active">
-                    <b>1</b>
-                    <strong>Ice-Breaker</strong>
-                    <p>Send soft permission message first.</p>
-                  </div>
-
-                  <div className="flowStep">
-                    <b>2</b>
-                    <strong>Wait Replies</strong>
-                    <p>Separate interested and not interested contacts.</p>
-                  </div>
-
-                  <div className="flowStep">
-                    <b>3</b>
-                    <strong>Main Campaign</strong>
-                    <p>Send offer only to interested contacts.</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flow">
-                  <div className="flowStep active">
-                    <b>1</b>
-                    <strong>Direct Template</strong>
-                    <p>Send one approved template to imported recipients.</p>
-                  </div>
-                </div>
-              )}
+              <h2>Template Preview</h2>
 
               <div className="phone">
                 <div className="phoneTop">
                   <strong>Your Business</strong>
-                  <span>WhatsApp Business</span>
+                  <span>{form.campaignMode}</span>
                 </div>
 
                 <div className="message">
-                  Hi, can we send you details about our WhatsApp CRM and
-                  automation solution? Reply YES for details.
+                  {form.campaignMode === "Ice-Breaker Campaign"
+                    ? getTemplateBody(form.iceBreakerTemplate)
+                    : getTemplateBody(form.template)}
                 </div>
 
-                <div className="message reply">YES</div>
+                {form.campaignMode === "Ice-Breaker Campaign" && (
+                  <>
+                    <div className="message reply">YES</div>
+
+                    <div className="message main">
+                      <strong>Main campaign after YES:</strong>
+                      <br />
+                      {getTemplateBody(form.mainTemplate)}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="templateStats">
+                <div>
+                  <span>Total Templates</span>
+                  <b>{templates.length}</b>
+                </div>
+                <div>
+                  <span>Approved</span>
+                  <b>{approvedTemplates.length}</b>
+                </div>
               </div>
 
               {importedNumbers.length > 0 && (
@@ -479,6 +525,7 @@ export default function CampaignsPage() {
                     <tr>
                       <th>Name</th>
                       <th>Mode</th>
+                      <th>Template</th>
                       <th>Recipients</th>
                       <th>Interested</th>
                       <th>No Reply</th>
@@ -493,9 +540,17 @@ export default function CampaignsPage() {
                       <tr key={campaign.id}>
                         <td>
                           <strong>{campaign.name}</strong>
-                          <small>{campaign.date || "-"} {campaign.time || ""}</small>
+                          <small>
+                            {campaign.date || "-"} {campaign.time || ""}
+                          </small>
                         </td>
                         <td>{campaign.campaignMode || "Direct Campaign"}</td>
+                        <td>
+                          {(campaign.campaignMode || "Direct Campaign") ===
+                          "Ice-Breaker Campaign"
+                            ? campaign.iceBreakerTemplate || campaign.template
+                            : campaign.template}
+                        </td>
                         <td>{campaign.recipients}</td>
                         <td>{campaign.interestedCount || 0}</td>
                         <td>{campaign.noReplyCount ?? campaign.recipients}</td>
@@ -695,12 +750,14 @@ export default function CampaignsPage() {
             line-height: 1.5;
           }
 
-          .safetyBanner b {
+          .safetyBanner a {
             background: #075e54;
             color: #fff;
             border-radius: 999px;
-            padding: 10px 14px;
+            padding: 11px 15px;
             white-space: nowrap;
+            text-decoration: none;
+            font-weight: 900;
           }
 
           .grid {
@@ -771,6 +828,16 @@ export default function CampaignsPage() {
             padding: 12px 16px;
           }
 
+          .warning {
+            background: #fff4db;
+            color: #9a6500;
+            border: 1px solid #f6d88a;
+            border-radius: 16px;
+            padding: 14px;
+            font-weight: 900;
+            margin-bottom: 16px;
+          }
+
           .importInfo {
             margin-top: 14px;
             background: #fff;
@@ -796,45 +863,11 @@ export default function CampaignsPage() {
             font-size: 15px;
           }
 
-          .flow {
-            display: grid;
-            gap: 12px;
-            margin-bottom: 20px;
-          }
-
-          .flowStep {
-            border: 1px solid #e4eee8;
-            background: #f8fcfa;
-            border-radius: 18px;
-            padding: 16px;
-          }
-
-          .flowStep.active {
-            background: #e8f7ef;
-            border-color: #bde9cf;
-          }
-
-          .flowStep b {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: #25d366;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 8px;
-          }
-
-          .flowStep p {
-            margin: 8px 0 0;
-            color: #58746c;
-          }
-
           .phone {
             background: #061812;
             border-radius: 32px;
             padding: 14px;
-            max-width: 310px;
+            max-width: 330px;
             margin: 0 auto;
           }
 
@@ -861,6 +894,7 @@ export default function CampaignsPage() {
             border-radius: 16px;
             padding: 14px;
             line-height: 1.5;
+            white-space: pre-wrap;
           }
 
           .reply {
@@ -868,6 +902,40 @@ export default function CampaignsPage() {
             margin-left: 80px;
             text-align: center;
             font-weight: 900;
+          }
+
+          .main {
+            background: #e8f7ef;
+            border: 1px solid #bde9cf;
+          }
+
+          .templateStats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+          }
+
+          .templateStats div {
+            background: #f6fbf8;
+            border-radius: 16px;
+            padding: 16px;
+            text-align: center;
+          }
+
+          .templateStats span,
+          .templateStats b {
+            display: block;
+          }
+
+          .templateStats span {
+            color: #58746c;
+            font-size: 12px;
+            margin-bottom: 6px;
+          }
+
+          .templateStats b {
+            font-size: 24px;
           }
 
           .numberPreview {
@@ -903,7 +971,7 @@ export default function CampaignsPage() {
           table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 1000px;
+            min-width: 1100px;
           }
 
           th,
