@@ -4,6 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import AuthGuard from "../AuthGuard";
 
+type Recipient = {
+  phone: string;
+  status: string;
+  reply: string;
+  updatedAt: string;
+};
+
 type Campaign = {
   id: string;
   name: string;
@@ -14,6 +21,7 @@ type Campaign = {
   date: string;
   time: string;
   recipients: number;
+  recipientsList?: Recipient[];
   status: string;
   safetyStatus?: string;
   sent: number;
@@ -21,6 +29,7 @@ type Campaign = {
   replies: number;
   interestedCount?: number;
   notInterestedCount?: number;
+  doNotContactCount?: number;
   noReplyCount?: number;
   createdAt: string;
 };
@@ -43,6 +52,7 @@ export default function CampaignsPage() {
   const [saving, setSaving] = useState(false);
   const [importedNumbers, setImportedNumbers] = useState<string[]>([]);
   const [importFileName, setImportFileName] = useState("");
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -63,6 +73,13 @@ export default function CampaignsPage() {
 
       if (campaignsData.ok) {
         setCampaigns(campaignsData.campaigns || []);
+
+        if (selectedCampaign) {
+          const refreshed = (campaignsData.campaigns || []).find(
+            (campaign: Campaign) => campaign.id === selectedCampaign.id
+          );
+          if (refreshed) setSelectedCampaign(refreshed);
+        }
       }
 
       const templatesRes = await fetch("/api/templates", { cache: "no-store" });
@@ -173,6 +190,13 @@ export default function CampaignsPage() {
       return;
     }
 
+    const recipientsList = importedNumbers.map((phone) => ({
+      phone,
+      status: "No Reply",
+      reply: "",
+      updatedAt: "",
+    }));
+
     setSaving(true);
 
     try {
@@ -193,6 +217,7 @@ export default function CampaignsPage() {
           date: form.date,
           time: form.time,
           recipients: Number(form.recipients || 0),
+          recipientsList,
           status: form.status,
         }),
       });
@@ -244,6 +269,42 @@ export default function CampaignsPage() {
     }
   }
 
+  async function updateRecipientStatus(
+    campaignId: string,
+    phone: string,
+    status: string
+  ) {
+    let reply = "";
+
+    if (status === "Interested") reply = "YES";
+    if (status === "Not Interested") reply = "NO";
+    if (status === "Do Not Contact") reply = "STOP";
+
+    try {
+      const res = await fetch("/api/campaigns", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: campaignId,
+          action: "update_recipient_status",
+          phone,
+          status,
+          reply,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        await loadData();
+      }
+    } catch (error) {
+      alert("Could not update recipient.");
+    }
+  }
+
   async function deleteCampaign(id: string) {
     const confirmDelete = confirm("Delete this campaign?");
     if (!confirmDelete) return;
@@ -260,6 +321,7 @@ export default function CampaignsPage() {
       const data = await res.json();
 
       if (data.ok) {
+        setSelectedCampaign(null);
         await loadData();
       }
     } catch (error) {
@@ -314,10 +376,10 @@ export default function CampaignsPage() {
 
           <div className="safetyBanner">
             <div>
-              <strong>Real Template Selection</strong>
+              <strong>Recipient Status Tracking</strong>
               <p>
-                Campaigns now use templates saved from your Templates page.
-                Ice-breaker flow helps you start carefully before launching the main campaign.
+                Imported numbers are now saved inside each campaign. You can mark
+                replies manually before Meta webhook automation is added.
               </p>
             </div>
             <a href="/templates">Manage Templates</a>
@@ -427,8 +489,8 @@ export default function CampaignsPage() {
               <div className="upload">
                 <strong>Import Excel Numbers</strong>
                 <p>
-                  Upload Excel file with WhatsApp numbers. System will count
-                  unique numbers automatically.
+                  Upload Excel file with WhatsApp numbers. System will save all
+                  unique numbers inside the campaign.
                 </p>
 
                 <input
@@ -490,17 +552,6 @@ export default function CampaignsPage() {
                 )}
               </div>
 
-              <div className="templateStats">
-                <div>
-                  <span>Total Templates</span>
-                  <b>{templates.length}</b>
-                </div>
-                <div>
-                  <span>Approved</span>
-                  <b>{approvedTemplates.length}</b>
-                </div>
-              </div>
-
               {importedNumbers.length > 0 && (
                 <div className="numberPreview">
                   <strong>Imported Numbers Preview</strong>
@@ -529,8 +580,8 @@ export default function CampaignsPage() {
                       <th>Recipients</th>
                       <th>Interested</th>
                       <th>No Reply</th>
+                      <th>DNC</th>
                       <th>Status</th>
-                      <th>Safety</th>
                       <th>Action</th>
                     </tr>
                   </thead>
@@ -554,18 +605,16 @@ export default function CampaignsPage() {
                         <td>{campaign.recipients}</td>
                         <td>{campaign.interestedCount || 0}</td>
                         <td>{campaign.noReplyCount ?? campaign.recipients}</td>
+                        <td>{campaign.doNotContactCount || 0}</td>
                         <td>
-                          <em
-                            className={
-                              campaign.status === "Draft" ? "draft" : ""
-                            }
-                          >
-                            {campaign.status}
-                          </em>
+                          <em>{campaign.status}</em>
                         </td>
-                        <td>{campaign.safetyStatus || "-"}</td>
                         <td>
                           <div className="tableActions">
+                            <button onClick={() => setSelectedCampaign(campaign)}>
+                              Contacts
+                            </button>
+
                             {(campaign.campaignMode || "Direct Campaign") ===
                               "Ice-Breaker Campaign" &&
                               campaign.status === "Ice-Breaker Ready" && (
@@ -617,6 +666,112 @@ export default function CampaignsPage() {
             </div>
           </div>
         </section>
+
+        {selectedCampaign && (
+          <div className="modalOverlay" onClick={() => setSelectedCampaign(null)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modalTop">
+                <div>
+                  <span>Campaign contacts</span>
+                  <h2>{selectedCampaign.name}</h2>
+                </div>
+
+                <button onClick={() => setSelectedCampaign(null)}>Close</button>
+              </div>
+
+              <div className="contactStats">
+                <div>
+                  <span>Total</span>
+                  <b>{selectedCampaign.recipientsList?.length || selectedCampaign.recipients}</b>
+                </div>
+                <div>
+                  <span>Interested</span>
+                  <b>{selectedCampaign.interestedCount || 0}</b>
+                </div>
+                <div>
+                  <span>No Reply</span>
+                  <b>{selectedCampaign.noReplyCount ?? selectedCampaign.recipients}</b>
+                </div>
+                <div>
+                  <span>DNC</span>
+                  <b>{selectedCampaign.doNotContactCount || 0}</b>
+                </div>
+              </div>
+
+              {!selectedCampaign.recipientsList ||
+              selectedCampaign.recipientsList.length === 0 ? (
+                <div className="empty">
+                  This campaign has no saved contact list. Create a new campaign after importing Excel numbers.
+                </div>
+              ) : (
+                <div className="recipientList">
+                  {selectedCampaign.recipientsList.map((recipient) => (
+                    <div className="recipient" key={recipient.phone}>
+                      <div>
+                        <strong>{recipient.phone}</strong>
+                        <small>
+                          Status: {recipient.status}
+                          {recipient.reply ? ` • Reply: ${recipient.reply}` : ""}
+                        </small>
+                      </div>
+
+                      <div className="recipientActions">
+                        <button
+                          onClick={() =>
+                            updateRecipientStatus(
+                              selectedCampaign.id,
+                              recipient.phone,
+                              "Interested"
+                            )
+                          }
+                        >
+                          Interested
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            updateRecipientStatus(
+                              selectedCampaign.id,
+                              recipient.phone,
+                              "Not Interested"
+                            )
+                          }
+                        >
+                          Not Interested
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            updateRecipientStatus(
+                              selectedCampaign.id,
+                              recipient.phone,
+                              "No Reply"
+                            )
+                          }
+                        >
+                          No Reply
+                        </button>
+
+                        <button
+                          className="deleteBtn"
+                          onClick={() =>
+                            updateRecipientStatus(
+                              selectedCampaign.id,
+                              recipient.phone,
+                              "Do Not Contact"
+                            )
+                          }
+                        >
+                          DNC
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <style jsx>{`
           * { box-sizing: border-box; }
@@ -719,7 +874,8 @@ export default function CampaignsPage() {
           header button,
           .primary,
           .upload button,
-          .tableActions button {
+          .tableActions button,
+          .recipientActions button {
             border: 0;
             border-radius: 14px;
             background: #25d366;
@@ -909,35 +1065,6 @@ export default function CampaignsPage() {
             border: 1px solid #bde9cf;
           }
 
-          .templateStats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 20px;
-          }
-
-          .templateStats div {
-            background: #f6fbf8;
-            border-radius: 16px;
-            padding: 16px;
-            text-align: center;
-          }
-
-          .templateStats span,
-          .templateStats b {
-            display: block;
-          }
-
-          .templateStats span {
-            color: #58746c;
-            font-size: 12px;
-            margin-bottom: 6px;
-          }
-
-          .templateStats b {
-            font-size: 24px;
-          }
-
           .numberPreview {
             margin-top: 18px;
             background: #f8fcfa;
@@ -1005,11 +1132,6 @@ export default function CampaignsPage() {
             white-space: nowrap;
           }
 
-          em.draft {
-            background: #fff4db;
-            color: #9a6500;
-          }
-
           .tableActions {
             display: grid;
             gap: 8px;
@@ -1021,10 +1143,120 @@ export default function CampaignsPage() {
             font-size: 12px;
           }
 
-          .tableActions .deleteBtn,
           .deleteBtn {
-            background: #ffe8e8;
-            color: #b42318;
+            background: #ffe8e8 !important;
+            color: #b42318 !important;
+          }
+
+          .modalOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            z-index: 999;
+          }
+
+          .modal {
+            width: 100%;
+            max-width: 980px;
+            max-height: 86vh;
+            overflow: auto;
+            background: #fff;
+            border-radius: 28px;
+            padding: 28px;
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.25);
+          }
+
+          .modalTop {
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            align-items: center;
+            margin-bottom: 18px;
+          }
+
+          .modalTop span {
+            color: #075e54;
+            font-weight: 950;
+            text-transform: uppercase;
+            font-size: 12px;
+          }
+
+          .modalTop h2 {
+            margin: 6px 0 0;
+          }
+
+          .modalTop button {
+            border: 0;
+            border-radius: 14px;
+            background: #075e54;
+            color: #fff;
+            padding: 12px 16px;
+            font-weight: 900;
+            cursor: pointer;
+          }
+
+          .contactStats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 18px;
+          }
+
+          .contactStats div {
+            background: #f6fbf8;
+            border: 1px solid #e4eee8;
+            border-radius: 18px;
+            padding: 16px;
+          }
+
+          .contactStats span {
+            color: #58746c;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .contactStats b {
+            display: block;
+            font-size: 26px;
+            margin-top: 6px;
+          }
+
+          .recipientList {
+            display: grid;
+            gap: 12px;
+          }
+
+          .recipient {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
+            background: #f8fcfa;
+            border: 1px solid #e4eee8;
+            border-radius: 18px;
+            padding: 16px;
+          }
+
+          .recipient small {
+            display: block;
+            color: #58746c;
+            margin-top: 6px;
+          }
+
+          .recipientActions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-end;
+          }
+
+          .recipientActions button {
+            padding: 9px 11px;
+            font-size: 12px;
           }
 
           @media (max-width: 1000px) {
@@ -1037,7 +1269,8 @@ export default function CampaignsPage() {
               min-height: auto;
             }
 
-            .grid {
+            .grid,
+            .contactStats {
               grid-template-columns: 1fr;
             }
 
@@ -1046,9 +1279,15 @@ export default function CampaignsPage() {
             }
 
             header,
-            .safetyBanner {
+            .safetyBanner,
+            .modalTop,
+            .recipient {
               align-items: flex-start;
               flex-direction: column;
+            }
+
+            .recipientActions {
+              justify-content: flex-start;
             }
           }
         `}</style>
