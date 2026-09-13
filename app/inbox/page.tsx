@@ -40,11 +40,11 @@ export default function InboxPage() {
         <nav>
           <a href="/app/dashboard">Dashboard</a>
           <a className="active" href="/app/inbox">Inbox</a>
-          <a href="/app/campaigns">Campaigns</a>
-          <a href="/app/templates">Templates</a>
-          <a href="/app/contacts">Contacts</a>
-          <a href="/app/crm-sync">CRM Sync</a>
-          <a href="/app/settings">Settings</a>
+          <a href="/campaigns">Campaigns</a>
+          <a href="/templates">Templates</a>
+          <a href="/contacts">Contacts</a>
+          <a href="/crm-sync">CRM Sync</a>
+          <a href="/settings">Settings</a>
         </nav>
       </aside>
 
