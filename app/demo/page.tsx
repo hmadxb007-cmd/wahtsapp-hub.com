@@ -11,7 +11,7 @@ export default function DemoPage() {
     service: "Both CRM Integration and Marketing",
     message: "",
   });
-
+const [submitted, setSubmitted] = useState(false);
   function update(field: string, value: string) {
     setForm((current) => ({
       ...current,
@@ -126,6 +126,11 @@ Message: ${form.message}
             <button type="button" onClick={requestDemo}>
               Request Demo on WhatsApp
             </button>
+            {submitted && (
+  <div className="success">
+    Demo request saved successfully. WhatsApp will open now.
+  </div>
+)}
 
             <small>
               For now this sends the request to WhatsApp. Later we will save it in your dashboard also.
@@ -134,7 +139,16 @@ Message: ${form.message}
         </div>
       </section>
 
-      <style jsx>{`
+      <style jsx>
+        .success {
+  margin-top: 14px;
+  background: #e8f7ef;
+  color: #075e54;
+  border: 1px solid #bde9cf;
+  border-radius: 14px;
+  padding: 13px 15px;
+  font-weight: 900;
+}{`
         * {
           box-sizing: border-box;
         }
