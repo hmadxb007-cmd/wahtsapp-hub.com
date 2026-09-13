@@ -19,6 +19,15 @@ export default function DashboardPage() {
   <a href="/crm-sync">CRM Sync</a>
   <a href="/settings">Settings</a>
 </nav>
+        <button
+  className="logout"
+  onClick={() => {
+    document.cookie = "wh_hub_session=; path=/; max-age=0";
+    window.location.href = "/login";
+  }}
+>
+  Logout
+</button>
       </aside>
 
       <section>
