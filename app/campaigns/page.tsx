@@ -709,10 +709,18 @@ export default function CampaignsPage() {
                     <div className="recipient" key={recipient.phone}>
                       <div>
                         <strong>{recipient.phone}</strong>
-                        <small>
-                          Status: {recipient.status}
-                          {recipient.reply ? ` • Reply: ${recipient.reply}` : ""}
-                        </small>
+                       <small>
+  Status: {recipient.status}
+  {recipient.reply ? ` • Reply: ${recipient.reply}` : ""}
+</small>
+
+{recipient.botReply && (
+  <div className="botReplyBox">
+    <b>Bot Auto Reply:</b>
+    <p>{recipient.botReply}</p>
+    <em>{recipient.botReplyStatus || "Simulated"}</em>
+  </div>
+)}
                       </div>
 
                       <div className="recipientActions">
@@ -1246,7 +1254,39 @@ export default function CampaignsPage() {
             color: #58746c;
             margin-top: 6px;
           }
+.botReplyBox {
+  margin-top: 10px;
+  background: #e8f7ef;
+  border: 1px solid #bde9cf;
+  border-radius: 14px;
+  padding: 12px;
+  max-width: 520px;
+}
 
+.botReplyBox b {
+  display: block;
+  color: #075e54;
+  font-size: 12px;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.botReplyBox p {
+  margin: 0 0 8px;
+  color: #071b15;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.botReplyBox em {
+  background: #075e54;
+  color: #fff;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 900;
+}
           .recipientActions {
             display: flex;
             flex-wrap: wrap;
