@@ -8,9 +8,11 @@ type Recipient = {
   phone: string;
   status: string;
   reply: string;
+  botReply?: string;
+  botReplyStatus?: string;
+  botReplyAt?: string;
   updatedAt: string;
 };
-
 type Campaign = {
   id: string;
   name: string;
