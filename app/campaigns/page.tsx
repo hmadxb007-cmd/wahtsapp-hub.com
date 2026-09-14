@@ -13,6 +13,7 @@ type Recipient = {
   botReplyAt?: string;
   updatedAt: string;
 };
+
 type Campaign = {
   id: string;
   name: string;
@@ -46,15 +47,51 @@ type Template = {
   createdAt: string;
 };
 
+type SafetyContact = {
+  phone: string;
+  globalStatus: string;
+  lastStatus: string;
+  lastReply: string;
+  sourceCampaignId?: string;
+  sourceCampaignName?: string;
+  updatedAt?: string;
+};
+
+type ImportReport = {
+  totalFound: number;
+  duplicateInFile: number;
+  duplicateOldCampaign: number;
+  dncBlocked: number;
+  notInterestedBlocked: number;
+  alreadyInterested: number;
+  readyToImport: number;
+};
+
 export default function CampaignsPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [safetyContacts, setSafetyContacts] = useState<SafetyContact[]>([]);
   const [saving, setSaving] = useState(false);
   const [importedNumbers, setImportedNumbers] = useState<string[]>([]);
+  const [blockedNumbers, setBlockedNumbers] = useState<
+    { phone: string; reason: string }[]
+  >([]);
   const [importFileName, setImportFileName] = useState("");
-  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(
+    null
+  );
+
+  const [importReport, setImportReport] = useState<ImportReport>({
+    totalFound: 0,
+    duplicateInFile: 0,
+    duplicateOldCampaign: 0,
+    dncBlocked: 0,
+    notInterestedBlocked: 0,
+    alreadyInterested: 0,
+    readyToImport: 0,
+  });
 
   const [form, setForm] = useState({
     name: "",
@@ -104,8 +141,17 @@ export default function CampaignsPage() {
           }));
         }
       }
+
+      const safetyRes = await fetch("/api/safety-contacts", {
+        cache: "no-store",
+      });
+      const safetyData = await safetyRes.json();
+
+      if (safetyData.ok) {
+        setSafetyContacts(safetyData.contacts || []);
+      }
     } catch (error) {
-      console.log("Failed to load campaigns/templates", error);
+      console.log("Failed to load campaigns/templates/safety contacts", error);
     }
   }
 
@@ -140,10 +186,31 @@ export default function CampaignsPage() {
 
   function getTemplateBody(templateName: string) {
     const found = templates.find((template) => template.name === templateName);
-    return found?.body || "Create and approve a template first from Templates page.";
+    return (
+      found?.body || "Create and approve a template first from Templates page."
+    );
+  }
+
+  function getOldCampaignPhones() {
+    const phones: string[] = [];
+
+    campaigns.forEach((campaign) => {
+      (campaign.recipientsList || []).forEach((recipient) => {
+        if (recipient.phone) phones.push(cleanPhone(recipient.phone));
+      });
+    });
+
+    return new Set(phones);
+  }
+
+  function getSafetyContact(phone: string) {
+    const cleaned = cleanPhone(phone);
+    return safetyContacts.find((contact) => cleanPhone(contact.phone) === cleaned);
   }
 
   async function importExcel(file: File) {
+    await loadData();
+
     setImportFileName(file.name);
 
     const buffer = await file.arrayBuffer();
@@ -156,24 +223,86 @@ export default function CampaignsPage() {
       defval: "",
     });
 
-    const numbers: string[] = [];
+    const allNumbers: string[] = [];
 
     rows.forEach((row) => {
       row.forEach((cell) => {
         const phone = cleanPhone(cell);
 
         if (phone && phone.length >= 8 && /^[+0-9]+$/.test(phone)) {
-          numbers.push(phone);
+          allNumbers.push(phone);
         }
       });
     });
 
-    const uniqueNumbers = Array.from(new Set(numbers));
+    const seenInFile = new Set<string>();
+    const oldCampaignPhones = getOldCampaignPhones();
 
-    setImportedNumbers(uniqueNumbers);
-    updateField("recipients", String(uniqueNumbers.length));
+    const ready: string[] = [];
+    const blocked: { phone: string; reason: string }[] = [];
 
-    alert(`${uniqueNumbers.length} WhatsApp numbers imported successfully.`);
+    let duplicateInFile = 0;
+    let duplicateOldCampaign = 0;
+    let dncBlocked = 0;
+    let notInterestedBlocked = 0;
+    let alreadyInterested = 0;
+
+    allNumbers.forEach((phone) => {
+      const cleaned = cleanPhone(phone);
+      const safety = getSafetyContact(cleaned);
+
+      if (seenInFile.has(cleaned)) {
+        duplicateInFile += 1;
+        blocked.push({ phone: cleaned, reason: "Duplicate in same Excel file" });
+        return;
+      }
+
+      seenInFile.add(cleaned);
+
+      if (safety?.globalStatus === "Do Not Contact") {
+        dncBlocked += 1;
+        blocked.push({ phone: cleaned, reason: "Do Not Contact blocked" });
+        return;
+      }
+
+      if (safety?.globalStatus === "Not Interested") {
+        notInterestedBlocked += 1;
+        blocked.push({ phone: cleaned, reason: "Not Interested blocked" });
+        return;
+      }
+
+      if (safety?.globalStatus === "Interested") {
+        alreadyInterested += 1;
+        blocked.push({ phone: cleaned, reason: "Already Interested / warm lead" });
+        return;
+      }
+
+      if (oldCampaignPhones.has(cleaned)) {
+        duplicateOldCampaign += 1;
+        blocked.push({ phone: cleaned, reason: "Already exists in old campaign" });
+        return;
+      }
+
+      ready.push(cleaned);
+    });
+
+    setImportedNumbers(ready);
+    setBlockedNumbers(blocked);
+    updateField("recipients", String(ready.length));
+
+    setImportReport({
+      totalFound: allNumbers.length,
+      duplicateInFile,
+      duplicateOldCampaign,
+      dncBlocked,
+      notInterestedBlocked,
+      alreadyInterested,
+      readyToImport: ready.length,
+    });
+
+    alert(
+      `Import checked successfully.\nReady to import: ${ready.length}\nBlocked/skipped: ${blocked.length}`
+    );
   }
 
   async function saveCampaign() {
@@ -183,7 +312,7 @@ export default function CampaignsPage() {
     }
 
     if (Number(form.recipients || 0) <= 0) {
-      alert("Please import numbers or enter recipients count.");
+      alert("No safe numbers ready to import. Please upload a valid Excel list.");
       return;
     }
 
@@ -196,6 +325,9 @@ export default function CampaignsPage() {
       phone,
       status: "No Reply",
       reply: "",
+      botReply: "",
+      botReplyStatus: "Not Needed",
+      botReplyAt: "",
       updatedAt: "",
     }));
 
@@ -240,7 +372,17 @@ export default function CampaignsPage() {
         });
 
         setImportedNumbers([]);
+        setBlockedNumbers([]);
         setImportFileName("");
+        setImportReport({
+          totalFound: 0,
+          duplicateInFile: 0,
+          duplicateOldCampaign: 0,
+          dncBlocked: 0,
+          notInterestedBlocked: 0,
+          alreadyInterested: 0,
+          readyToImport: 0,
+        });
 
         await loadData();
       }
@@ -331,7 +473,9 @@ export default function CampaignsPage() {
     }
   }
 
-  const approvedTemplates = templates.filter((template) => template.status === "Approved");
+  const approvedTemplates = templates.filter(
+    (template) => template.status === "Approved"
+  );
   const usableTemplates = approvedTemplates.length > 0 ? approvedTemplates : templates;
 
   return (
@@ -350,6 +494,7 @@ export default function CampaignsPage() {
             <a href="/templates">Templates</a>
             <a href="/contacts">Contacts</a>
             <a href="/crm-sync">CRM Sync</a>
+            <a href="/assistant">AI Assistant</a>
             <a href="/settings">Settings</a>
           </nav>
 
@@ -378,13 +523,13 @@ export default function CampaignsPage() {
 
           <div className="safetyBanner">
             <div>
-              <strong>Recipient Status Tracking</strong>
+              <strong>Global Safety Import Filter</strong>
               <p>
-                Imported numbers are now saved inside each campaign. You can mark
-                replies manually before Meta webhook automation is added.
+                Excel import now blocks duplicate numbers, DNC contacts, Not
+                Interested contacts and already warm contacts before saving a campaign.
               </p>
             </div>
-            <a href="/templates">Manage Templates</a>
+            <a href="/assistant">Ask Assistant</a>
           </div>
 
           <div className="grid">
@@ -477,12 +622,12 @@ export default function CampaignsPage() {
                 </div>
               </div>
 
-              <label>Recipients Count</label>
+              <label>Safe Recipients Count</label>
               <input
                 type="number"
                 value={form.recipients}
                 onChange={(e) => updateField("recipients", e.target.value)}
-                placeholder="Example: 2350"
+                placeholder="Auto counted after Excel import"
               />
 
               <label>Status</label>
@@ -491,8 +636,8 @@ export default function CampaignsPage() {
               <div className="upload">
                 <strong>Import Excel Numbers</strong>
                 <p>
-                  Upload Excel file with WhatsApp numbers. System will save all
-                  unique numbers inside the campaign.
+                  Upload Excel file. System will remove duplicates, DNC, Not
+                  Interested and previously used numbers.
                 </p>
 
                 <input
@@ -510,24 +655,59 @@ export default function CampaignsPage() {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  Import File
+                  Import & Safety Check
                 </button>
 
                 {importFileName && (
                   <div className="importInfo">
                     <b>{importFileName}</b>
-                    <span>{importedNumbers.length} numbers imported</span>
+                    <span>{importedNumbers.length} safe numbers ready</span>
                   </div>
                 )}
               </div>
 
               <button className="primary" type="button" onClick={saveCampaign}>
-                {saving ? "Saving Campaign..." : "Save Campaign"}
+                {saving ? "Saving Campaign..." : "Save Safe Campaign"}
               </button>
             </div>
 
             <div className="card preview">
-              <h2>Template Preview</h2>
+              <h2>Safety Import Report</h2>
+
+              <div className="reportGrid">
+                <div>
+                  <span>Total Found</span>
+                  <b>{importReport.totalFound}</b>
+                </div>
+                <div>
+                  <span>Ready</span>
+                  <b>{importReport.readyToImport}</b>
+                </div>
+                <div>
+                  <span>File Duplicates</span>
+                  <b>{importReport.duplicateInFile}</b>
+                </div>
+                <div>
+                  <span>Old Campaign</span>
+                  <b>{importReport.duplicateOldCampaign}</b>
+                </div>
+                <div>
+                  <span>DNC Blocked</span>
+                  <b>{importReport.dncBlocked}</b>
+                </div>
+                <div>
+                  <span>Not Interested</span>
+                  <b>{importReport.notInterestedBlocked}</b>
+                </div>
+                <div>
+                  <span>Already Interested</span>
+                  <b>{importReport.alreadyInterested}</b>
+                </div>
+                <div>
+                  <span>Blocked Total</span>
+                  <b>{blockedNumbers.length}</b>
+                </div>
+              </div>
 
               <div className="phone">
                 <div className="phoneTop">
@@ -554,14 +734,28 @@ export default function CampaignsPage() {
                 )}
               </div>
 
+              {blockedNumbers.length > 0 && (
+                <div className="blockedPreview">
+                  <strong>Blocked / Skipped Preview</strong>
+                  {blockedNumbers.slice(0, 6).map((item) => (
+                    <span key={`${item.phone}-${item.reason}`}>
+                      {item.phone} — {item.reason}
+                    </span>
+                  ))}
+                  {blockedNumbers.length > 6 && (
+                    <small>+{blockedNumbers.length - 6} more blocked</small>
+                  )}
+                </div>
+              )}
+
               {importedNumbers.length > 0 && (
                 <div className="numberPreview">
-                  <strong>Imported Numbers Preview</strong>
+                  <strong>Ready Numbers Preview</strong>
                   {importedNumbers.slice(0, 5).map((number) => (
                     <span key={number}>{number}</span>
                   ))}
                   {importedNumbers.length > 5 && (
-                    <small>+{importedNumbers.length - 5} more numbers</small>
+                    <small>+{importedNumbers.length - 5} more safe numbers</small>
                   )}
                 </div>
               )}
@@ -684,7 +878,10 @@ export default function CampaignsPage() {
               <div className="contactStats">
                 <div>
                   <span>Total</span>
-                  <b>{selectedCampaign.recipientsList?.length || selectedCampaign.recipients}</b>
+                  <b>
+                    {selectedCampaign.recipientsList?.length ||
+                      selectedCampaign.recipients}
+                  </b>
                 </div>
                 <div>
                   <span>Interested</span>
@@ -692,7 +889,9 @@ export default function CampaignsPage() {
                 </div>
                 <div>
                   <span>No Reply</span>
-                  <b>{selectedCampaign.noReplyCount ?? selectedCampaign.recipients}</b>
+                  <b>
+                    {selectedCampaign.noReplyCount ?? selectedCampaign.recipients}
+                  </b>
                 </div>
                 <div>
                   <span>DNC</span>
@@ -703,7 +902,8 @@ export default function CampaignsPage() {
               {!selectedCampaign.recipientsList ||
               selectedCampaign.recipientsList.length === 0 ? (
                 <div className="empty">
-                  This campaign has no saved contact list. Create a new campaign after importing Excel numbers.
+                  This campaign has no saved contact list. Create a new campaign
+                  after importing Excel numbers.
                 </div>
               ) : (
                 <div className="recipientList">
@@ -711,18 +911,19 @@ export default function CampaignsPage() {
                     <div className="recipient" key={recipient.phone}>
                       <div>
                         <strong>{recipient.phone}</strong>
-                       <small>
-  Status: {recipient.status}
-  {recipient.reply ? ` • Reply: ${recipient.reply}` : ""}
-</small>
 
-{recipient.botReply && (
-  <div className="botReplyBox">
-    <b>Bot Auto Reply:</b>
-    <p>{recipient.botReply}</p>
-    <em>{recipient.botReplyStatus || "Simulated"}</em>
-  </div>
-)}
+                        <small>
+                          Status: {recipient.status}
+                          {recipient.reply ? ` • Reply: ${recipient.reply}` : ""}
+                        </small>
+
+                        {recipient.botReply && (
+                          <div className="botReplyBox">
+                            <b>Bot Auto Reply:</b>
+                            <p>{recipient.botReply}</p>
+                            <em>{recipient.botReplyStatus || "Simulated"}</em>
+                          </div>
+                        )}
                       </div>
 
                       <div className="recipientActions">
@@ -784,7 +985,9 @@ export default function CampaignsPage() {
         )}
 
         <style jsx>{`
-          * { box-sizing: border-box; }
+          * {
+            box-sizing: border-box;
+          }
 
           .app {
             min-height: 100vh;
@@ -847,9 +1050,9 @@ export default function CampaignsPage() {
             width: 100%;
             margin-top: 25px;
             padding: 13px 14px;
-            border: 1px solid rgba(255,255,255,0.15);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 13px;
-            background: rgba(255,255,255,0.06);
+            background: rgba(255, 255, 255, 0.06);
             color: #fff;
             font-weight: 900;
             cursor: pointer;
@@ -1029,6 +1232,32 @@ export default function CampaignsPage() {
             font-size: 15px;
           }
 
+          .reportGrid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+          }
+
+          .reportGrid div {
+            background: #f8fcfa;
+            border: 1px solid #e4eee8;
+            border-radius: 16px;
+            padding: 15px;
+          }
+
+          .reportGrid span {
+            display: block;
+            color: #58746c;
+            font-size: 12px;
+            font-weight: 900;
+            margin-bottom: 6px;
+          }
+
+          .reportGrid b {
+            font-size: 26px;
+          }
+
           .phone {
             background: #061812;
             border-radius: 32px;
@@ -1075,7 +1304,8 @@ export default function CampaignsPage() {
             border: 1px solid #bde9cf;
           }
 
-          .numberPreview {
+          .numberPreview,
+          .blockedPreview {
             margin-top: 18px;
             background: #f8fcfa;
             border: 1px solid #e4eee8;
@@ -1083,17 +1313,30 @@ export default function CampaignsPage() {
             padding: 16px;
           }
 
+          .blockedPreview {
+            background: #fff4db;
+            border-color: #f6d88a;
+          }
+
           .numberPreview strong,
           .numberPreview span,
-          .numberPreview small {
+          .numberPreview small,
+          .blockedPreview strong,
+          .blockedPreview span,
+          .blockedPreview small {
             display: block;
           }
 
-          .numberPreview span {
+          .numberPreview span,
+          .blockedPreview span {
             padding: 8px 0;
             border-bottom: 1px solid #e4eee8;
             color: #075e54;
             font-weight: 850;
+          }
+
+          .blockedPreview span {
+            color: #9a6500;
           }
 
           .empty {
@@ -1256,39 +1499,7 @@ export default function CampaignsPage() {
             color: #58746c;
             margin-top: 6px;
           }
-.botReplyBox {
-  margin-top: 10px;
-  background: #e8f7ef;
-  border: 1px solid #bde9cf;
-  border-radius: 14px;
-  padding: 12px;
-  max-width: 520px;
-}
 
-.botReplyBox b {
-  display: block;
-  color: #075e54;
-  font-size: 12px;
-  text-transform: uppercase;
-  margin-bottom: 5px;
-}
-
-.botReplyBox p {
-  margin: 0 0 8px;
-  color: #071b15;
-  line-height: 1.5;
-  font-weight: 700;
-}
-
-.botReplyBox em {
-  background: #075e54;
-  color: #fff;
-  padding: 5px 9px;
-  border-radius: 999px;
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 900;
-}
           .recipientActions {
             display: flex;
             flex-wrap: wrap;
@@ -1299,6 +1510,40 @@ export default function CampaignsPage() {
           .recipientActions button {
             padding: 9px 11px;
             font-size: 12px;
+          }
+
+          .botReplyBox {
+            margin-top: 10px;
+            background: #e8f7ef;
+            border: 1px solid #bde9cf;
+            border-radius: 14px;
+            padding: 12px;
+            max-width: 520px;
+          }
+
+          .botReplyBox b {
+            display: block;
+            color: #075e54;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+          }
+
+          .botReplyBox p {
+            margin: 0 0 8px;
+            color: #071b15;
+            line-height: 1.5;
+            font-weight: 700;
+          }
+
+          .botReplyBox em {
+            background: #075e54;
+            color: #fff;
+            padding: 5px 9px;
+            border-radius: 999px;
+            font-style: normal;
+            font-size: 11px;
+            font-weight: 900;
           }
 
           @media (max-width: 1000px) {
@@ -1312,7 +1557,8 @@ export default function CampaignsPage() {
             }
 
             .grid,
-            .contactStats {
+            .contactStats,
+            .reportGrid {
               grid-template-columns: 1fr;
             }
 
