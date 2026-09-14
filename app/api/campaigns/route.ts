@@ -6,6 +6,23 @@ export const dynamic = "force-dynamic";
 
 const campaignsFilePath = path.join(process.cwd(), "data", "campaigns.json");
 const safetyFilePath = path.join(process.cwd(), "data", "safety-contacts.json");
+const botSettingsFilePath = path.join(process.cwd(), "data", "bot-settings.json");
+
+const defaultBotSettings = {
+  fixedRepliesEnabled: true,
+  aiRepliesEnabled: false,
+  assistantEnabled: true,
+  interestedReply:
+    "Thank you for your interest. Our team will send you the details shortly.",
+  notInterestedReply:
+    "Thank you for your reply. No problem, we will not send this offer again.",
+  dncReply:
+    "You have been removed from our WhatsApp marketing list. You will not receive future promotional messages.",
+  noReplyNote: "No reply received yet.",
+  aiBusinessInstructions:
+    "You are a polite WhatsApp business assistant. Reply professionally, keep messages short, do not pressure customers, respect opt-out requests, and only continue marketing if the customer shows interest.",
+  updatedAt: "",
+};
 
 function ensureFile(filePath: string, defaultValue: string = "[]") {
   const dir = path.dirname(filePath);
@@ -19,7 +36,7 @@ function ensureFile(filePath: string, defaultValue: string = "[]") {
   }
 }
 
-function readJson(filePath: string) {
+function readJson(filePath: string, fallback: any = []) {
   ensureFile(filePath);
 
   const raw = fs.readFileSync(filePath, "utf8");
@@ -27,13 +44,31 @@ function readJson(filePath: string) {
   try {
     return JSON.parse(raw);
   } catch {
-    return [];
+    return fallback;
   }
 }
 
 function writeJson(filePath: string, data: any) {
   ensureFile(filePath);
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+}
+
+function readBotSettings() {
+  ensureFile(
+    botSettingsFilePath,
+    JSON.stringify(defaultBotSettings, null, 2)
+  );
+
+  const raw = fs.readFileSync(botSettingsFilePath, "utf8");
+
+  try {
+    return {
+      ...defaultBotSettings,
+      ...JSON.parse(raw),
+    };
+  } catch {
+    return defaultBotSettings;
+  }
 }
 
 function cleanPhone(value: any) {
@@ -43,6 +78,49 @@ function cleanPhone(value: any) {
     .replace(/\(/g, "")
     .replace(/\)/g, "")
     .trim();
+}
+
+function getFixedBotReply(status: string) {
+  const botSettings = readBotSettings();
+
+  if (!botSettings.fixedRepliesEnabled) {
+    return {
+      botReply: "",
+      botReplyStatus: "Disabled",
+      botReplyAt: "",
+    };
+  }
+
+  if (status === "Interested") {
+    return {
+      botReply: botSettings.interestedReply || defaultBotSettings.interestedReply,
+      botReplyStatus: "Simulated",
+      botReplyAt: new Date().toISOString(),
+    };
+  }
+
+  if (status === "Not Interested") {
+    return {
+      botReply:
+        botSettings.notInterestedReply || defaultBotSettings.notInterestedReply,
+      botReplyStatus: "Simulated",
+      botReplyAt: new Date().toISOString(),
+    };
+  }
+
+  if (status === "Do Not Contact") {
+    return {
+      botReply: botSettings.dncReply || defaultBotSettings.dncReply,
+      botReplyStatus: "Simulated",
+      botReplyAt: new Date().toISOString(),
+    };
+  }
+
+  return {
+    botReply: "",
+    botReplyStatus: "Not Needed",
+    botReplyAt: "",
+  };
 }
 
 function normalizeRecipientsList(list: any[]) {
@@ -55,6 +133,9 @@ function normalizeRecipientsList(list: any[]) {
           phone: cleanPhone(item),
           status: "No Reply",
           reply: "",
+          botReply: "",
+          botReplyStatus: "Not Needed",
+          botReplyAt: "",
           updatedAt: "",
         };
       }
@@ -63,6 +144,9 @@ function normalizeRecipientsList(list: any[]) {
         phone: cleanPhone(item.phone),
         status: item.status || "No Reply",
         reply: item.reply || "",
+        botReply: item.botReply || "",
+        botReplyStatus: item.botReplyStatus || "Not Needed",
+        botReplyAt: item.botReplyAt || "",
         updatedAt: item.updatedAt || "",
       };
     })
@@ -93,7 +177,7 @@ function syncSafetyContact({
   campaignId: string;
   campaignName: string;
 }) {
-  const contacts = readJson(safetyFilePath);
+  const contacts = readJson(safetyFilePath, []);
   const cleanedPhone = cleanPhone(phone);
 
   if (!cleanedPhone) return;
@@ -143,7 +227,7 @@ function syncSafetyContact({
 }
 
 export async function GET() {
-  const campaigns = readJson(campaignsFilePath);
+  const campaigns = readJson(campaignsFilePath, []);
 
   return NextResponse.json({
     ok: true,
@@ -203,7 +287,7 @@ export async function POST(request: Request) {
     createdAt: new Date().toISOString(),
   };
 
-  const campaigns = readJson(campaignsFilePath);
+  const campaigns = readJson(campaignsFilePath, []);
   campaigns.unshift(campaign);
   writeJson(campaignsFilePath, campaigns);
 
@@ -215,7 +299,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const body = await request.json();
-  const campaigns = readJson(campaignsFilePath);
+  const campaigns = readJson(campaignsFilePath, []);
 
   const updatedCampaigns = campaigns.map((campaign: any) => {
     if (campaign.id !== body.id) return campaign;
@@ -223,13 +307,21 @@ export async function PATCH(request: Request) {
     const currentList = normalizeRecipientsList(campaign.recipientsList || []);
 
     if (body.action === "update_recipient_status") {
+      const cleanedBodyPhone = cleanPhone(body.phone);
+
       const updatedList = currentList.map((recipient) => {
-        if (recipient.phone !== cleanPhone(body.phone)) return recipient;
+        if (recipient.phone !== cleanedBodyPhone) return recipient;
+
+        const nextStatus = body.status || recipient.status;
+        const botReplyData = getFixedBotReply(nextStatus);
 
         const updatedRecipient = {
           ...recipient,
-          status: body.status || recipient.status,
+          status: nextStatus,
           reply: body.reply || recipient.reply || "",
+          botReply: botReplyData.botReply,
+          botReplyStatus: botReplyData.botReplyStatus,
+          botReplyAt: botReplyData.botReplyAt,
           updatedAt: new Date().toISOString(),
         };
 
@@ -322,7 +414,7 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   const body = await request.json();
-  const campaigns = readJson(campaignsFilePath);
+  const campaigns = readJson(campaignsFilePath, []);
 
   const filtered = campaigns.filter((campaign: any) => campaign.id !== body.id);
   writeJson(campaignsFilePath, filtered);
