@@ -9,7 +9,9 @@ const VERIFY_TOKEN = "whatsapp_hub_verify_token";
 const campaignsFilePath = path.join(process.cwd(), "data", "campaigns.json");
 const safetyFilePath = path.join(process.cwd(), "data", "safety-contacts.json");
 const botSettingsFilePath = path.join(process.cwd(), "data", "bot-settings.json");
+const settingsFilePath = path.join(process.cwd(), "data", "settings.json");
 const logFilePath = path.join(process.cwd(), "data", "meta-webhook-logs.json");
+const sentLogsFilePath = path.join(process.cwd(), "data", "meta-sent-logs.json");
 
 const defaultBotSettings = {
   fixedRepliesEnabled: true,
@@ -75,6 +77,7 @@ function cleanPhone(value: any) {
     .replace(/-/g, "")
     .replace(/\(/g, "")
     .replace(/\)/g, "")
+    .replace(/^\+/, "")
     .replace(/^00/, "")
     .trim();
 }
@@ -203,6 +206,18 @@ function saveWebhookLog(body: any, extracted: any) {
   });
 
   writeJson(logFilePath, logs.slice(0, 100));
+}
+
+function saveSentLog(log: any) {
+  const logs = readJson(sentLogsFilePath, []);
+
+  logs.unshift({
+    id: Date.now().toString(),
+    ...log,
+    createdAt: new Date().toISOString(),
+  });
+
+  writeJson(sentLogsFilePath, logs.slice(0, 100));
 }
 
 function extractMetaMessage(body: any) {
@@ -360,6 +375,84 @@ function updateCampaignByReply(phone: string, text: string) {
   };
 }
 
+async function sendMetaTextMessage(to: string, message: string) {
+  const settings = readJson(settingsFilePath, {});
+
+  const phoneNumberId = settings.phoneNumberId || "";
+  const accessToken = settings.accessToken || "";
+
+  if (!phoneNumberId || !accessToken) {
+    saveSentLog({
+      to,
+      message,
+      status: "Not Sent",
+      error: "Meta Phone Number ID or Access Token is missing in Settings.",
+    });
+
+    return {
+      ok: false,
+      error: "Meta Phone Number ID or Access Token is missing in Settings.",
+    };
+  }
+
+  try {
+    const metaRes = await fetch(
+      `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: cleanPhone(to),
+          type: "text",
+          text: {
+            preview_url: false,
+            body: message,
+          },
+        }),
+      }
+    );
+
+    const metaData = await metaRes.json();
+
+    saveSentLog({
+      to,
+      message,
+      status: metaRes.ok ? "Sent" : "Failed",
+      metaResponse: metaData,
+    });
+
+    if (!metaRes.ok) {
+      return {
+        ok: false,
+        error: "Meta API send failed.",
+        metaResponse: metaData,
+      };
+    }
+
+    return {
+      ok: true,
+      sent: true,
+      metaResponse: metaData,
+    };
+  } catch (error: any) {
+    saveSentLog({
+      to,
+      message,
+      status: "Failed",
+      error: error?.message || "Unknown error",
+    });
+
+    return {
+      ok: false,
+      error: "Could not connect to Meta API.",
+    };
+  }
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
@@ -399,13 +492,27 @@ export async function POST(request: Request) {
     campaignName: "",
   };
 
+  let sendResult: any = {
+    ok: false,
+    skipped: true,
+    reason: "No bot reply needed.",
+  };
+
   if (extracted.phone && extracted.text) {
     updateResult = updateCampaignByReply(extracted.phone, extracted.text);
+
+    if (updateResult.botReply) {
+      sendResult = await sendMetaTextMessage(
+        extracted.phone,
+        updateResult.botReply
+      );
+    }
   }
 
   saveWebhookLog(body, {
     ...extracted,
     ...updateResult,
+    sendResult,
   });
 
   return NextResponse.json({
@@ -413,5 +520,6 @@ export async function POST(request: Request) {
     received: true,
     extracted,
     updateResult,
+    sendResult,
   });
 }
