@@ -63,16 +63,17 @@ export default function InboxPage() {
             <strong>WhatsApp Hub</strong>
           </a>
 
-          <nav>
-            <a href="/dashboard">Dashboard</a>
-            <a className="active" href="/inbox">Inbox</a>
-            <a href="/campaigns">Campaigns</a>
-            <a href="/templates">Templates</a>
-            <a href="/contacts">Contacts</a
-           <a href="/safety-contacts">Safety Contacts</a>
-            <a href="/crm-sync">CRM Sync</a>
-            <a href="/settings">Settings</a>
-          </nav>
+         <nav>
+  <a href="/dashboard">Dashboard</a>
+  <a className="active" href="/inbox">Inbox</a>
+  <a href="/campaigns">Campaigns</a>
+  <a href="/templates">Templates</a>
+  <a href="/contacts">Contacts</a>
+  <a href="/safety-contacts">Safety Contacts</a>
+  <a href="/crm-sync">CRM Sync</a>
+  <a href="/assistant">AI Assistant</a>
+  <a href="/settings">Settings</a>
+</nav>
 
           <button
             className="logout"
