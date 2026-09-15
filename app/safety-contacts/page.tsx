@@ -70,6 +70,58 @@ export default function SafetyContactsPage() {
     }
   }
 
+  function exportContacts(status: string) {
+    const exportList =
+      status === "All"
+        ? contacts
+        : contacts.filter((contact) => contact.globalStatus === status);
+
+    if (exportList.length === 0) {
+      alert(`No ${status} contacts found.`);
+      return;
+    }
+
+    const rows = [
+      [
+        "phone",
+        "globalStatus",
+        "lastStatus",
+        "lastReply",
+        "sourceCampaignName",
+        "updatedAt",
+      ],
+      ...exportList.map((contact) => [
+        contact.phone,
+        contact.globalStatus,
+        contact.lastStatus,
+        contact.lastReply || "",
+        contact.sourceCampaignName || "",
+        contact.updatedAt || "",
+      ]),
+    ];
+
+    const csv = rows
+      .map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+      )
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `whatsapp-hub-${status
+      .toLowerCase()
+      .replace(/\s/g, "-")}-contacts.csv`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  }
+
   const filteredContacts = contacts.filter((contact) => {
     const matchesSearch =
       contact.phone.toLowerCase().includes(search.toLowerCase()) ||
@@ -176,6 +228,29 @@ export default function SafetyContactsPage() {
             </div>
           </div>
 
+          <div className="exportPanel">
+            <div>
+              <strong>Export Contact Lists</strong>
+              <p>
+                Download filtered CSV lists for warm leads, blocked DNC numbers,
+                or full safety records.
+              </p>
+            </div>
+
+            <div className="exportActions">
+              <button onClick={() => exportContacts("Interested")}>
+                Export Interested
+              </button>
+              <button onClick={() => exportContacts("Not Interested")}>
+                Export Not Interested
+              </button>
+              <button onClick={() => exportContacts("Do Not Contact")}>
+                Export DNC
+              </button>
+              <button onClick={() => exportContacts("All")}>Export All</button>
+            </div>
+          </div>
+
           <div className="card">
             <div className="toolbar">
               <input
@@ -191,6 +266,10 @@ export default function SafetyContactsPage() {
                 <option>Do Not Contact</option>
                 <option>No Reply</option>
               </select>
+
+              <button onClick={() => exportContacts(filter)}>
+                Export Current Filter
+              </button>
             </div>
 
             {filteredContacts.length === 0 ? (
@@ -294,7 +373,10 @@ export default function SafetyContactsPage() {
               ) : (
                 <div className="historyList">
                   {selectedContact.campaignHistory.map((item, index) => (
-                    <div className="historyItem" key={`${item.campaignId}-${index}`}>
+                    <div
+                      className="historyItem"
+                      key={`${item.campaignId}-${index}`}
+                    >
                       <strong>{item.campaignName || "Campaign"}</strong>
                       <p>
                         Status: {item.status}{" "}
@@ -421,7 +503,9 @@ export default function SafetyContactsPage() {
           }
 
           header button,
-          .tableActions button {
+          .tableActions button,
+          .toolbar button,
+          .exportActions button {
             border: 0;
             border-radius: 14px;
             background: #25d366;
@@ -470,7 +554,8 @@ export default function SafetyContactsPage() {
           }
 
           .stats div,
-          .card {
+          .card,
+          .exportPanel {
             background: #fff;
             border: 1px solid #e4eee8;
             border-radius: 24px;
@@ -490,11 +575,45 @@ export default function SafetyContactsPage() {
             margin-top: 8px;
           }
 
+          .exportPanel {
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            align-items: center;
+            margin-bottom: 18px;
+          }
+
+          .exportPanel strong {
+            font-size: 20px;
+          }
+
+          .exportPanel p {
+            margin: 7px 0 0;
+            color: #58746c;
+            line-height: 1.5;
+          }
+
+          .exportActions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: flex-end;
+          }
+
+          .exportActions button {
+            padding: 12px 14px;
+            white-space: nowrap;
+          }
+
           .toolbar {
             display: grid;
-            grid-template-columns: 1fr 240px;
+            grid-template-columns: 1fr 240px 190px;
             gap: 12px;
             margin-bottom: 18px;
+          }
+
+          .toolbar button {
+            height: 50px;
           }
 
           input,
@@ -692,7 +811,8 @@ export default function SafetyContactsPage() {
 
             header,
             .safetyBanner,
-            .modalTop {
+            .modalTop,
+            .exportPanel {
               align-items: flex-start;
               flex-direction: column;
             }
@@ -701,6 +821,15 @@ export default function SafetyContactsPage() {
             .toolbar,
             .detailGrid {
               grid-template-columns: 1fr;
+            }
+
+            .exportActions {
+              width: 100%;
+              justify-content: flex-start;
+            }
+
+            .exportActions button {
+              width: 100%;
             }
 
             .card {
