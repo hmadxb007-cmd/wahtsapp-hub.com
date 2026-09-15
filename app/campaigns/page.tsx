@@ -82,6 +82,8 @@ export default function CampaignsPage() {
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(
     null
   );
+  const [simulatePhone, setSimulatePhone] = useState("");
+  const [simulateMessage, setSimulateMessage] = useState("");
 
   const [importReport, setImportReport] = useState<ImportReport>({
     totalFound: 0,
@@ -205,7 +207,110 @@ export default function CampaignsPage() {
 
   function getSafetyContact(phone: string) {
     const cleaned = cleanPhone(phone);
-    return safetyContacts.find((contact) => cleanPhone(contact.phone) === cleaned);
+    return safetyContacts.find(
+      (contact) => cleanPhone(contact.phone) === cleaned
+    );
+  }
+
+  function exportCampaignRecipients(status: string) {
+    if (!selectedCampaign) return;
+
+    const list = selectedCampaign.recipientsList || [];
+
+    const exportList =
+      status === "All"
+        ? list
+        : list.filter((recipient) => recipient.status === status);
+
+    if (exportList.length === 0) {
+      alert(`No ${status} contacts found in this campaign.`);
+      return;
+    }
+
+    const rows = [
+      [
+        "phone",
+        "status",
+        "reply",
+        "botReply",
+        "botReplyStatus",
+        "botReplyAt",
+        "updatedAt",
+        "campaignName",
+      ],
+      ...exportList.map((recipient) => [
+        recipient.phone,
+        recipient.status,
+        recipient.reply || "",
+        recipient.botReply || "",
+        recipient.botReplyStatus || "",
+        recipient.botReplyAt || "",
+        recipient.updatedAt || "",
+        selectedCampaign.name,
+      ]),
+    ];
+
+    const csv = rows
+      .map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+      )
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `${selectedCampaign.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")}-${status
+      .toLowerCase()
+      .replace(/\s/g, "-")}.csv`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  }
+
+  async function simulateReply(phone?: string, message?: string) {
+    if (!selectedCampaign) return;
+
+    const finalPhone = cleanPhone(phone || simulatePhone);
+    const finalMessage = message || simulateMessage;
+
+    if (!finalPhone || !finalMessage) {
+      alert("Please enter phone and reply message.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/simulate-reply", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          campaignId: selectedCampaign.id,
+          phone: finalPhone,
+          message: finalMessage,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        setSimulatePhone("");
+        setSimulateMessage("");
+        await loadData();
+        alert(`Reply detected as: ${data.status}`);
+      } else {
+        alert(data.error || "Could not simulate reply.");
+      }
+    } catch (error) {
+      alert("Simulate reply API is not responding.");
+    }
   }
 
   async function importExcel(file: File) {
@@ -273,7 +378,10 @@ export default function CampaignsPage() {
 
       if (safety?.globalStatus === "Interested") {
         alreadyInterested += 1;
-        blocked.push({ phone: cleaned, reason: "Already Interested / warm lead" });
+        blocked.push({
+          phone: cleaned,
+          reason: "Already Interested / warm lead",
+        });
         return;
       }
 
@@ -476,7 +584,8 @@ export default function CampaignsPage() {
   const approvedTemplates = templates.filter(
     (template) => template.status === "Approved"
   );
-  const usableTemplates = approvedTemplates.length > 0 ? approvedTemplates : templates;
+  const usableTemplates =
+    approvedTemplates.length > 0 ? approvedTemplates : templates;
 
   return (
     <AuthGuard>
@@ -493,6 +602,7 @@ export default function CampaignsPage() {
             <a className="active" href="/campaigns">Campaigns</a>
             <a href="/templates">Templates</a>
             <a href="/contacts">Contacts</a>
+            <a href="/safety-contacts">Safety Contacts</a>
             <a href="/crm-sync">CRM Sync</a>
             <a href="/assistant">AI Assistant</a>
             <a href="/settings">Settings</a>
@@ -525,8 +635,8 @@ export default function CampaignsPage() {
             <div>
               <strong>Global Safety Import Filter</strong>
               <p>
-                Excel import now blocks duplicate numbers, DNC contacts, Not
-                Interested contacts and already warm contacts before saving a campaign.
+                Excel import blocks duplicate numbers, DNC contacts, Not
+                Interested contacts and already warm contacts before saving.
               </p>
             </div>
             <a href="/assistant">Ask Assistant</a>
@@ -636,7 +746,7 @@ export default function CampaignsPage() {
               <div className="upload">
                 <strong>Import Excel Numbers</strong>
                 <p>
-                  Upload Excel file. System will remove duplicates, DNC, Not
+                  Upload Excel file. System removes duplicates, DNC, Not
                   Interested and previously used numbers.
                 </p>
 
@@ -807,7 +917,15 @@ export default function CampaignsPage() {
                         </td>
                         <td>
                           <div className="tableActions">
-                            <button onClick={() => setSelectedCampaign(campaign)}>
+                            <button
+                              onClick={() => {
+                                setSelectedCampaign(campaign);
+                                setSimulatePhone(
+                                  campaign.recipientsList?.[0]?.phone || ""
+                                );
+                                setSimulateMessage("");
+                              }}
+                            >
                               Contacts
                             </button>
 
@@ -899,6 +1017,51 @@ export default function CampaignsPage() {
                 </div>
               </div>
 
+              <div className="modalTools">
+                <div>
+                  <strong>Export Campaign Contacts</strong>
+                  <p>Download contacts from this campaign with reply and bot reply data.</p>
+                </div>
+
+                <div className="exportActions">
+                  <button onClick={() => exportCampaignRecipients("Interested")}>
+                    Export Interested
+                  </button>
+                  <button onClick={() => exportCampaignRecipients("Do Not Contact")}>
+                    Export DNC
+                  </button>
+                  <button onClick={() => exportCampaignRecipients("All")}>
+                    Export All
+                  </button>
+                </div>
+              </div>
+
+              <div className="simulateBox">
+                <strong>Simulate Customer Reply</strong>
+                <p>
+                  Test automatic reply detection before connecting real Meta API.
+                  Example replies: YES, NO, STOP, send details, not interested.
+                </p>
+
+                <div className="simulateForm">
+                  <input
+                    value={simulatePhone}
+                    onChange={(e) => setSimulatePhone(e.target.value)}
+                    placeholder="+971..."
+                  />
+
+                  <input
+                    value={simulateMessage}
+                    onChange={(e) => setSimulateMessage(e.target.value)}
+                    placeholder="Type customer reply, e.g. YES"
+                  />
+
+                  <button onClick={() => simulateReply()}>
+                    Simulate Reply
+                  </button>
+                </div>
+              </div>
+
               {!selectedCampaign.recipientsList ||
               selectedCampaign.recipientsList.length === 0 ? (
                 <div className="empty">
@@ -927,6 +1090,30 @@ export default function CampaignsPage() {
                       </div>
 
                       <div className="recipientActions">
+                        <button
+                          onClick={() =>
+                            simulateReply(recipient.phone, "YES")
+                          }
+                        >
+                          Sim YES
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            simulateReply(recipient.phone, "NO")
+                          }
+                        >
+                          Sim NO
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            simulateReply(recipient.phone, "STOP")
+                          }
+                        >
+                          Sim STOP
+                        </button>
+
                         <button
                           onClick={() =>
                             updateRecipientStatus(
@@ -1088,7 +1275,9 @@ export default function CampaignsPage() {
           .primary,
           .upload button,
           .tableActions button,
-          .recipientActions button {
+          .recipientActions button,
+          .simulateForm button,
+          .exportActions button {
             border: 0;
             border-radius: 14px;
             background: #25d366;
@@ -1414,7 +1603,7 @@ export default function CampaignsPage() {
 
           .modal {
             width: 100%;
-            max-width: 980px;
+            max-width: 1050px;
             max-height: 86vh;
             overflow: auto;
             background: #fff;
@@ -1459,7 +1648,9 @@ export default function CampaignsPage() {
             margin-bottom: 18px;
           }
 
-          .contactStats div {
+          .contactStats div,
+          .modalTools,
+          .simulateBox {
             background: #f6fbf8;
             border: 1px solid #e4eee8;
             border-radius: 18px;
@@ -1476,6 +1667,48 @@ export default function CampaignsPage() {
             display: block;
             font-size: 26px;
             margin-top: 6px;
+          }
+
+          .modalTools {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 14px;
+          }
+
+          .modalTools p,
+          .simulateBox p {
+            color: #58746c;
+            margin: 6px 0 0;
+            line-height: 1.5;
+          }
+
+          .exportActions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-end;
+          }
+
+          .exportActions button {
+            padding: 10px 12px;
+            font-size: 12px;
+          }
+
+          .simulateBox {
+            margin-bottom: 18px;
+          }
+
+          .simulateForm {
+            display: grid;
+            grid-template-columns: 180px 1fr 150px;
+            gap: 10px;
+            margin-top: 14px;
+          }
+
+          .simulateForm button {
+            padding: 0 14px;
           }
 
           .recipientList {
@@ -1558,7 +1791,8 @@ export default function CampaignsPage() {
 
             .grid,
             .contactStats,
-            .reportGrid {
+            .reportGrid,
+            .simulateForm {
               grid-template-columns: 1fr;
             }
 
@@ -1569,12 +1803,14 @@ export default function CampaignsPage() {
             header,
             .safetyBanner,
             .modalTop,
+            .modalTools,
             .recipient {
               align-items: flex-start;
               flex-direction: column;
             }
 
-            .recipientActions {
+            .recipientActions,
+            .exportActions {
               justify-content: flex-start;
             }
           }
