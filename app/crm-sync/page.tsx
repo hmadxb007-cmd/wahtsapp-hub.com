@@ -16,6 +16,7 @@ export default function CrmSyncPage() {
           <a href="/campaigns">Campaigns</a>
           <a href="/templates">Templates</a>
           <a href="/contacts">Contacts</a>
+          <a href="/safety-contacts">Safety Contacts</a>
           <a className="active" href="/crm-sync">CRM Sync</a>
           <a href="/settings">Settings</a>
         </nav>
