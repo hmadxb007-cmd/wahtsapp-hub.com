@@ -124,6 +124,7 @@ export default function TemplatesPage() {
             <a href="/campaigns">Campaigns</a>
             <a className="active" href="/templates">Templates</a>
             <a href="/contacts">Contacts</a>
+            <a href="/safety-contacts">Safety Contacts</a>
             <a href="/crm-sync">CRM Sync</a>
             <a href="/settings">Settings</a>
           </nav>
